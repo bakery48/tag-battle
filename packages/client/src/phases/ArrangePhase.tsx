@@ -1,4 +1,22 @@
 import React, { useState } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+} from '@dnd-kit/core';
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useGameStore } from '../store/gameStore.js';
 import { EVENTS } from '../events.js';
 import { BattleCard } from '../components/BattleCard.js';
@@ -8,96 +26,120 @@ interface ArrangePhaseProps {
   emit: (event: string, data: unknown) => void;
 }
 
+function SortableCardRow({ card, index }: { card: CardState; index: number }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        display:'flex', alignItems:'center', gap:10,
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.35 : 1,
+      }}
+    >
+      <span style={{ width:20, textAlign:'right', color:'var(--silver)', fontSize:'.85rem' }}>
+        {index + 1}
+      </span>
+      <div
+        {...attributes}
+        {...listeners}
+        style={{
+          cursor: 'grab',
+          padding:'4px 8px',
+          color:'var(--border-hi)',
+          fontSize:'1.1rem',
+          userSelect:'none',
+          touchAction:'none',
+        }}
+        title="ドラッグして並び替え"
+      >
+        ⠿
+      </div>
+      <BattleCard card={card} />
+      <div style={{ fontSize:'.72rem', color:'var(--silver)', maxWidth:200 }}>
+        {card.description}
+      </div>
+    </div>
+  );
+}
+
 export function ArrangePhase({ emit }: ArrangePhaseProps) {
   const { myDeck, setOrderedDeck } = useGameStore();
   const [orderedDeck, setLocalOrderedDeck] = useState<CardState[]>([...myDeck]);
-  const [submitted, setSubmitted] = useState(false);
+  const [activeCard, setActiveCard]   = useState<CardState | null>(null);
+  const [submitted, setSubmitted]     = useState(false);
 
-  const moveCard = (fromIdx: number, toIdx: number) => {
-    const newDeck = [...orderedDeck];
-    const [card] = newDeck.splice(fromIdx, 1);
-    newDeck.splice(toIdx, 0, card);
-    setLocalOrderedDeck(newDeck);
-    setOrderedDeck(newDeck);
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragStart = (e: DragStartEvent) => {
+    const card = orderedDeck.find(c => c.id === e.active.id);
+    setActiveCard(card ?? null);
+  };
+
+  const handleDragEnd = (e: DragEndEvent) => {
+    setActiveCard(null);
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const oldIdx = orderedDeck.findIndex(c => c.id === active.id);
+    const newIdx = orderedDeck.findIndex(c => c.id === over.id);
+    const next   = arrayMove(orderedDeck, oldIdx, newIdx);
+    setLocalOrderedDeck(next);
+    setOrderedDeck(next);
   };
 
   const handleSubmit = () => {
-    const deckOrder = orderedDeck.map((c) => c.id);
-    emit(EVENTS.ARRANGE_SUBMIT, { deckOrder });
+    emit(EVENTS.ARRANGE_SUBMIT, { deckOrder: orderedDeck.map(c => c.id) });
     setSubmitted(true);
   };
 
   if (submitted) {
     return (
-      <div style={{ padding: 20, textAlign: 'center' }}>
-        <h2>並び替えフェーズ</h2>
-        <p style={{ color: '#4caf50' }}>送信完了！対戦相手を待っています...</p>
+      <div className="center" style={{ minHeight:'100vh', flexDirection:'column', gap:16 }}>
+        <div className="spinner" />
+        <div style={{ color:'var(--silver)' }}>送信完了！対戦相手を待っています...</div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 20, maxWidth: 800, margin: '0 auto' }}>
-      <h2>デッキ並び替えフェーズ</h2>
-      <p style={{ color: '#aaa' }}>カードの順番を決めてください（上が先に使われます）</p>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {orderedDeck.map((card, i) => (
-          <div key={card.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ width: 24, textAlign: 'right', color: '#888' }}>{i + 1}.</span>
-            <BattleCard card={card} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {i > 0 && (
-                <button
-                  onClick={() => moveCard(i, i - 1)}
-                  style={{
-                    padding: '2px 8px',
-                    fontSize: '0.8rem',
-                    cursor: 'pointer',
-                    background: '#333',
-                    color: '#fff',
-                    border: '1px solid #555',
-                    borderRadius: 4,
-                  }}
-                >
-                  ↑
-                </button>
-              )}
-              {i < orderedDeck.length - 1 && (
-                <button
-                  onClick={() => moveCard(i, i + 1)}
-                  style={{
-                    padding: '2px 8px',
-                    fontSize: '0.8rem',
-                    cursor: 'pointer',
-                    background: '#333',
-                    color: '#fff',
-                    border: '1px solid #555',
-                    borderRadius: 4,
-                  }}
-                >
-                  ↓
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
+    <div className="page" style={{ maxWidth:700, margin:'0 auto', alignItems:'flex-start' }}>
+      <div className="phase-header" style={{ maxWidth:'100%' }}>
+        <div>
+          <div className="phase-title">③ 並び替えフェーズ</div>
+          <div className="phase-sub">ドラッグして8枚のデッキ順を決定（上から順に使用）</div>
+        </div>
       </div>
 
-      <button
-        onClick={handleSubmit}
-        style={{
-          marginTop: 20,
-          padding: '10px 24px',
-          fontSize: '1rem',
-          background: '#4caf50',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 8,
-          cursor: 'pointer',
-        }}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
       >
-        この順番で決定
+        <SortableContext items={orderedDeck.map(c => c.id)} strategy={verticalListSortingStrategy}>
+          <div style={{ width:'100%', display:'flex', flexDirection:'column', gap:6 }}>
+            {orderedDeck.map((card, i) => (
+              <SortableCardRow key={card.id} card={card} index={i} />
+            ))}
+          </div>
+        </SortableContext>
+
+        <DragOverlay>
+          {activeCard && (
+            <div style={{ transform:'rotate(2deg)', opacity:.9 }}>
+              <BattleCard card={activeCard} />
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
+
+      <button className="btn btn-primary" onClick={handleSubmit} style={{ marginTop:8 }}>
+        この順番で決定する
       </button>
     </div>
   );
