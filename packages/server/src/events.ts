@@ -19,6 +19,8 @@ export const EVENTS = {
   GAME_OVER: 'game_over',
   ERROR: 'error',
   OPPONENT_READY: 'opponent_ready',
+  BATTLE_RESULT: 'battle_result',
+  OPPONENT_DISCONNECTED: 'opponent_disconnected',
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];

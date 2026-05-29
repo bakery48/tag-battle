@@ -2,10 +2,8 @@ import { create } from 'zustand';
 import type { GamePhase, GameState, CardState, TurnLog, DisplayMonster } from '@tag-battle/shared';
 
 interface DraftOffer {
-  draftStage: 'front' | 'rear';
   cards: CardState[];
-  picksRemaining: number;
-  monsterId: string;
+  remaining: number;
 }
 
 interface GameStore {
@@ -36,7 +34,7 @@ interface GameStore {
   pendingCardPlayed: boolean;
 
   // Result
-  battleResult: 'player1' | 'player2' | 'draw' | null;
+  battleResult: string | null;
 
   // Status messages
   statusMessage: string;
@@ -53,7 +51,8 @@ interface GameStore {
   setOrderedDeck: (deck: CardState[]) => void;
   setGameState: (gs: GameState) => void;
   addBattleLog: (log: TurnLog) => void;
-  setBattleResult: (result: 'player1' | 'player2' | 'draw') => void;
+  setBattleLogs: (logs: TurnLog[]) => void;
+  setBattleResult: (result: string) => void;
   setStatusMessage: (msg: string) => void;
   setPendingCardPlayed: (v: boolean) => void;
   incrementCardIndex: () => void;
@@ -103,6 +102,8 @@ export const useGameStore = create<GameStore>((set) => ({
   setGameState: (gs) => set({ gameState: gs }),
 
   addBattleLog: (log) => set((s) => ({ battleLogs: [...s.battleLogs, log] })),
+
+  setBattleLogs: (logs) => set({ battleLogs: logs }),
 
   setBattleResult: (result) => set({ battleResult: result }),
 

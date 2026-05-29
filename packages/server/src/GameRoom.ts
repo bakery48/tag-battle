@@ -1,19 +1,18 @@
-import type { Server, Socket } from 'socket.io';
+import type { Server } from 'socket.io';
 import type {
   GameState, PlayerState, CardState, MonsterState, GamePhase,
 } from '@tag-battle/shared';
 import {
   getMonsterById, createMonsterState, resolveTurn,
   MONSTERS, FRONT_MONSTERS, REAR_MONSTERS,
-  getCardsForMonster,
+  getCardsForMonster, CARDS_BY_MONSTER,
 } from '@tag-battle/shared';
 import { EVENTS } from './events.js';
 
 // ── Draft config ──
-const DRAFT_POOL_SIZE = 8; // offer 8 cards from each monster's pool
-const DECK_SIZE = 8; // each player picks 8 cards per monster (4 front + 4 rear)
-const FRONT_DRAFT_PICKS = 4;
-const REAR_DRAFT_PICKS = 4;
+const DECK_SIZE = 8;           // player picks 8 cards total
+const OFFER_SIZE = 3;          // cards offered per round
+const OFFER_ROUNDS = 8;        // 8 rounds of picking
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -32,10 +31,10 @@ interface MonsterPick {
 }
 
 interface DraftState {
-  frontPool: CardState[];
-  rearPool: CardState[];
-  frontPicks: CardState[];
-  rearPicks: CardState[];
+  pool: CardState[];           // remaining shuffled 24-card pool (after current offer removed)
+  currentOffer: CardState[];   // current 3 cards shown to player
+  picked: CardState[];         // selected cards (grows from 0 to 8)
+  offerIndex: number;          // which offer round we're on (0-7)
 }
 
 export class GameRoom {
@@ -46,7 +45,6 @@ export class GameRoom {
   draftStates = new Map<PlayerIdx, DraftState>();
   arrangeSubmissions = new Map<PlayerIdx, string[]>();
   gameState?: GameState;
-  pendingCards = new Map<PlayerIdx, CardState>();
   io: Server;
 
   constructor(id: string, socket1: string, socket2: string, io: Server) {
@@ -74,6 +72,9 @@ export class GameRoom {
   handlePick(playerIdx: PlayerIdx, front: string, rear: string): void {
     if (this.phase !== 'pick') return;
 
+    // FIX 8: double submission guard
+    if (this.picks.has(playerIdx)) return;
+
     const frontMonster = getMonsterById(front);
     const rearMonster = getMonsterById(rear);
     if (!frontMonster || frontMonster.role !== 'front') {
@@ -93,30 +94,35 @@ export class GameRoom {
     }
   }
 
+  // FIX 1: combined 24-card pool
   private transitionToDraft(): void {
     this.phase = 'draft';
 
     for (let pi = 0 as PlayerIdx; pi <= 1; pi++) {
       const pick = this.picks.get(pi)!;
-      const frontCards = shuffle(getCardsForMonster(pick.front));
-      const rearCards = shuffle(getCardsForMonster(pick.rear));
+      // Combine front monster's 12 cards + rear monster's 12 cards = 24 cards
+      const combined: CardState[] = [
+        ...(CARDS_BY_MONSTER[pick.front] ?? getCardsForMonster(pick.front)),
+        ...(CARDS_BY_MONSTER[pick.rear] ?? getCardsForMonster(pick.rear)),
+      ];
+      const shuffled = shuffle(combined);
+
+      // First 3 are the initial offer, rest stay in pool
+      const currentOffer = shuffled.slice(0, OFFER_SIZE);
+      const pool = shuffled.slice(OFFER_SIZE);
 
       const draftState: DraftState = {
-        frontPool: frontCards,
-        rearPool: rearCards,
-        frontPicks: [],
-        rearPicks: [],
+        pool,
+        currentOffer,
+        picked: [],
+        offerIndex: 0,
       };
       this.draftStates.set(pi, draftState);
 
-      // Send draft offer for front monster (pick front first)
-      const offer = frontCards.slice(0, DRAFT_POOL_SIZE);
+      // Emit initial draft offer
       this.emitToPlayer(pi, EVENTS.DRAFT_OFFER, {
-        phase: 'draft',
-        draftStage: 'front',
-        cards: offer,
-        picksRemaining: FRONT_DRAFT_PICKS,
-        monsterId: pick.front,
+        cards: currentOffer,
+        remaining: OFFER_ROUNDS,
       });
     }
 
@@ -129,52 +135,31 @@ export class GameRoom {
     const ds = this.draftStates.get(playerIdx);
     if (!ds) return;
 
-    const pick = this.picks.get(playerIdx)!;
-
-    // Determine current stage
-    const needFront = ds.frontPicks.length < FRONT_DRAFT_PICKS;
-    const pool = needFront ? ds.frontPool : ds.rearPool;
-    const picksArr = needFront ? ds.frontPicks : ds.rearPicks;
-
-    const cardIdx = pool.findIndex((c) => c.id === cardId);
-    if (cardIdx === -1) {
-      this.emitToPlayer(playerIdx, EVENTS.ERROR, { message: 'Card not in current pool' });
+    // Validate cardId is in currentOffer (never expose pool)
+    const cardInOffer = ds.currentOffer.find((c) => c.id === cardId);
+    if (!cardInOffer) {
+      this.emitToPlayer(playerIdx, EVENTS.ERROR, { message: 'Card not in current offer' });
       return;
     }
 
-    const [card] = pool.splice(cardIdx, 1);
-    picksArr.push(card);
+    // Add chosen card to picked
+    ds.picked.push(cardInOffer);
+    ds.offerIndex++;
 
-    // Send updated offer or transition stages
-    if (needFront && ds.frontPicks.length < FRONT_DRAFT_PICKS) {
-      const offer = ds.frontPool.slice(0, DRAFT_POOL_SIZE);
+    if (ds.offerIndex < OFFER_ROUNDS) {
+      // Slice next 3 cards from pool
+      const nextOffer = ds.pool.splice(0, OFFER_SIZE);
+      ds.currentOffer = nextOffer;
+
       this.emitToPlayer(playerIdx, EVENTS.DRAFT_OFFER, {
-        draftStage: 'front',
-        cards: offer,
-        picksRemaining: FRONT_DRAFT_PICKS - ds.frontPicks.length,
-        monsterId: pick.front,
-      });
-    } else if (needFront && ds.frontPicks.length === FRONT_DRAFT_PICKS) {
-      // Transition to rear draft
-      const rearOffer = ds.rearPool.slice(0, DRAFT_POOL_SIZE);
-      this.emitToPlayer(playerIdx, EVENTS.DRAFT_OFFER, {
-        draftStage: 'rear',
-        cards: rearOffer,
-        picksRemaining: REAR_DRAFT_PICKS,
-        monsterId: pick.rear,
-      });
-    } else if (!needFront && ds.rearPicks.length < REAR_DRAFT_PICKS) {
-      const rearOffer = ds.rearPool.slice(0, DRAFT_POOL_SIZE);
-      this.emitToPlayer(playerIdx, EVENTS.DRAFT_OFFER, {
-        draftStage: 'rear',
-        cards: rearOffer,
-        picksRemaining: REAR_DRAFT_PICKS - ds.rearPicks.length,
-        monsterId: pick.rear,
+        cards: nextOffer,
+        remaining: OFFER_ROUNDS - ds.offerIndex,
       });
     } else {
-      // Draft complete for this player
+      // All 8 picks done for this player
+      ds.currentOffer = [];
       this.emitToPlayer(playerIdx, EVENTS.DRAFT_UPDATE, {
-        message: 'Draft complete, waiting for opponent',
+        myDeck: ds.picked,
       });
     }
 
@@ -189,7 +174,7 @@ export class GameRoom {
   private isDraftDoneForPlayer(pi: PlayerIdx): boolean {
     const ds = this.draftStates.get(pi);
     if (!ds) return false;
-    return ds.frontPicks.length >= FRONT_DRAFT_PICKS && ds.rearPicks.length >= REAR_DRAFT_PICKS;
+    return ds.offerIndex >= OFFER_ROUNDS;
   }
 
   private transitionToArrange(): void {
@@ -197,8 +182,7 @@ export class GameRoom {
 
     for (let pi = 0 as PlayerIdx; pi <= 1; pi++) {
       const ds = this.draftStates.get(pi)!;
-      const deck = [...ds.frontPicks, ...ds.rearPicks];
-      this.emitToPlayer(pi, EVENTS.ARRANGE_START, { deck });
+      this.emitToPlayer(pi, EVENTS.ARRANGE_START, { deck: ds.picked });
     }
 
     this.emitToRoom(EVENTS.PHASE_CHANGE, { phase: 'arrange' });
@@ -207,12 +191,17 @@ export class GameRoom {
   handleArrangeSubmit(playerIdx: PlayerIdx, deckOrder: string[]): void {
     if (this.phase !== 'arrange') return;
 
-    const ds = this.draftStates.get(playerIdx)!;
-    const deck = [...ds.frontPicks, ...ds.rearPicks];
-    const deckIds = deck.map((c) => c.id);
+    // FIX 8: double submission guard
+    if (this.arrangeSubmissions.has(playerIdx)) return;
 
-    // Validate: all 8 card IDs must be from draft
-    const valid = deckOrder.every((id) => deckIds.includes(id)) && deckOrder.length === DECK_SIZE;
+    const ds = this.draftStates.get(playerIdx)!;
+    // FIX 7: validate all IDs are from player's drafted cards and no duplicates
+    const deckIds = new Set(ds.picked.map((c) => c.id));
+    const valid =
+      deckOrder.length === DECK_SIZE &&
+      new Set(deckOrder).size === DECK_SIZE &&
+      deckOrder.every((id) => deckIds.has(id));
+
     if (!valid) {
       this.emitToPlayer(playerIdx, EVENTS.ERROR, { message: 'Invalid deck order' });
       return;
@@ -226,6 +215,7 @@ export class GameRoom {
     }
   }
 
+  // FIX 2: pre-compute all 8 turns and send full TurnLog[] at once
   private transitionToBattle(): void {
     this.phase = 'battle';
 
@@ -236,8 +226,7 @@ export class GameRoom {
       const rearMonster = getMonsterById(pick.rear)!;
       const ds = this.draftStates.get(idx)!;
       const deckOrder = this.arrangeSubmissions.get(idx)!;
-      const allCards = [...ds.frontPicks, ...ds.rearPicks];
-      const orderedDeck = deckOrder.map((id) => allCards.find((c) => c.id === id)!);
+      const orderedDeck = deckOrder.map((id) => ds.picked.find((c) => c.id === id)!);
 
       return {
         id: this.playerSockets[idx],
@@ -248,66 +237,39 @@ export class GameRoom {
       } satisfies PlayerState;
     }) as [PlayerState, PlayerState];
 
-    this.gameState = {
+    let gameState: GameState = {
       players,
       turn: 0,
       phase: 'battle',
     };
 
-    for (let pi = 0 as PlayerIdx; pi <= 1; pi++) {
-      this.emitToPlayer(pi, EVENTS.BATTLE_START, {
-        playerIndex: pi,
-        gameState: this.gameState,
-        myDeck: this.gameState.players[pi].deck,
-      });
+    // Pre-compute ALL turns
+    const turnLogs = [];
+    const p1Deck = players[0].deck;
+    const p2Deck = players[1].deck;
+    const totalTurns = Math.min(p1Deck.length, p2Deck.length);
+
+    for (let t = 0; t < totalTurns; t++) {
+      if (gameState.result) break;
+      const p1Card = p1Deck[t];
+      const p2Card = p2Deck[t];
+      const { nextState, log } = resolveTurn(gameState, p1Card, p2Card);
+      turnLogs.push(log);
+      gameState = nextState;
     }
 
-    this.emitToRoom(EVENTS.PHASE_CHANGE, { phase: 'battle' });
+    const result = gameState.result ?? 'draw';
+
+    // Send everything at once
+    this.emitToPlayer(0, EVENTS.BATTLE_RESULT, { turnLogs, result });
+    this.emitToPlayer(1, EVENTS.BATTLE_RESULT, { turnLogs, result });
+    this.phase = 'result';
   }
 
-  handlePlayCard(playerIdx: PlayerIdx, cardId: string): void {
-    if (this.phase !== 'battle' || !this.gameState) return;
-
-    const p = this.gameState.players[playerIdx];
-    const turn = p.currentTurn;
-    const card = p.deck[turn];
-
-    if (!card || card.id !== cardId) {
-      // Try to find the card anyway as fallback
-      const foundCard = p.deck.find((c) => c.id === cardId);
-      if (!foundCard) {
-        this.emitToPlayer(playerIdx, EVENTS.ERROR, { message: 'Card not found in deck' });
-        return;
-      }
-      this.pendingCards.set(playerIdx, foundCard);
-    } else {
-      this.pendingCards.set(playerIdx, card);
-    }
-
-    this.emitToPlayer(
-      (playerIdx === 0 ? 1 : 0) as PlayerIdx,
-      EVENTS.OPPONENT_READY,
-      { message: 'Opponent played a card' },
-    );
-
-    if (this.pendingCards.size === 2) {
-      this.resolveTurnInRoom();
-    }
-  }
-
-  private resolveTurnInRoom(): void {
-    if (!this.gameState) return;
-    const p1Card = this.pendingCards.get(0)!;
-    const p2Card = this.pendingCards.get(1)!;
-    this.pendingCards.clear();
-
-    const { nextState, log } = resolveTurn(this.gameState, p1Card, p2Card);
-    this.gameState = nextState;
-
-    this.emitToRoom(EVENTS.TURN_RESULT, { log });
-
-    if (nextState.result) {
-      this.emitToRoom(EVENTS.GAME_OVER, { result: nextState.result });
-    }
+  // FIX 5: disconnect notification
+  handleDisconnect(playerIdx: PlayerIdx): void {
+    const oppIdx: PlayerIdx = playerIdx === 0 ? 1 : 0;
+    this.emitToPlayer(oppIdx, EVENTS.OPPONENT_DISCONNECTED, { message: '相手が切断しました' });
+    this.phase = 'result';
   }
 }

@@ -8,7 +8,6 @@ import {
   PickMonsterSchema,
   DraftPickSchema,
   ArrangeSubmitSchema,
-  PlayCardSchema,
 } from './validation/payloads.js';
 
 const app = express();
@@ -93,21 +92,16 @@ io.on('connection', (socket) => {
     gameRoom.handleArrangeSubmit(idx, result.data.deckOrder);
   });
 
-  socket.on(EVENTS.PLAY_CARD, (payload: unknown) => {
-    const result = PlayCardSchema.safeParse(payload);
-    if (!result.success) {
-      socket.emit(EVENTS.ERROR, { message: 'Invalid play card payload' });
-      return;
-    }
-    const gameRoom = roomManager.getRoomBySocket(socket.id);
-    if (!gameRoom) return;
-    const idx = gameRoom.getPlayerIdx(socket.id);
-    if (idx === null) return;
-    gameRoom.handlePlayCard(idx, result.data.cardId);
-  });
-
+  // FIX 5: call handleDisconnect to notify opponent
   socket.on('disconnect', () => {
     console.log(`Socket disconnected: ${socket.id}`);
+    const gameRoom = roomManager.getRoomBySocket(socket.id);
+    if (gameRoom) {
+      const playerIndex = gameRoom.getPlayerIdx(socket.id);
+      if (playerIndex !== null) {
+        gameRoom.handleDisconnect(playerIndex);
+      }
+    }
     roomManager.removeSocket(socket.id);
   });
 });

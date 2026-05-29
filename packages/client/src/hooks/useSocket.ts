@@ -11,85 +11,74 @@ interface UseSocketReturn {
 
 export function useSocket(): UseSocketReturn {
   const socketRef = useRef<Socket | null>(null);
-  const store = useGameStore();
 
   useEffect(() => {
     const socket = io({ path: '/socket.io' });
     socketRef.current = socket;
 
+    // FIX 6: use useGameStore.getState() inside every callback to avoid stale closure
     socket.on('connect', () => {
-      store.setConnected(true);
-      store.setStatusMessage('サーバーに接続しました。対戦相手を待っています...');
+      useGameStore.getState().setConnected(true);
+      useGameStore.getState().setStatusMessage('サーバーに接続しました。対戦相手を待っています...');
     });
 
     socket.on('disconnect', () => {
-      store.setConnected(false);
-      store.setStatusMessage('サーバーから切断されました');
+      useGameStore.getState().setConnected(false);
+      useGameStore.getState().setStatusMessage('サーバーから切断されました');
     });
 
     socket.on(EVENTS.ROOM_JOINED, (data: { roomId: string; playerIndex: 0 | 1; status: string }) => {
       if (data.status === 'matched') {
-        store.setRoomInfo(data.roomId, data.playerIndex);
-        store.setStatusMessage('マッチング完了！');
+        useGameStore.getState().setRoomInfo(data.roomId, data.playerIndex);
+        useGameStore.getState().setStatusMessage('マッチング完了！');
       } else {
-        store.setStatusMessage('対戦相手を待っています...');
+        useGameStore.getState().setStatusMessage('対戦相手を待っています...');
       }
     });
 
     socket.on(EVENTS.GAME_START, () => {
-      store.setStatusMessage('ゲーム開始！');
+      useGameStore.getState().setStatusMessage('ゲーム開始！');
     });
 
     socket.on(EVENTS.PHASE_CHANGE, (data: { phase: string }) => {
-      store.setPhase(data.phase as GameState['phase']);
-      store.setStatusMessage(`フェーズ移行: ${data.phase}`);
+      useGameStore.getState().setPhase(data.phase as GameState['phase']);
+      useGameStore.getState().setStatusMessage(`フェーズ移行: ${data.phase}`);
     });
 
+    // FIX 1: updated draft offer shape (cards + remaining)
     socket.on(EVENTS.DRAFT_OFFER, (data: {
-      draftStage: 'front' | 'rear';
       cards: CardState[];
-      picksRemaining: number;
-      monsterId: string;
+      remaining: number;
     }) => {
-      store.setDraftOffer(data);
-      store.setStatusMessage(`ドラフト中: 残り${data.picksRemaining}枚選択`);
+      useGameStore.getState().setDraftOffer(data);
+      useGameStore.getState().setStatusMessage(`ドラフト中: 残り${data.remaining}枚選択`);
     });
 
     socket.on(EVENTS.ARRANGE_START, (data: { deck: CardState[] }) => {
-      store.setMyDeck(data.deck);
-      store.setOrderedDeck(data.deck);
+      useGameStore.getState().setMyDeck(data.deck);
+      useGameStore.getState().setOrderedDeck(data.deck);
     });
 
-    socket.on(EVENTS.BATTLE_START, (data: {
-      playerIndex: 0 | 1;
-      gameState: GameState;
-      myDeck: CardState[];
-    }) => {
-      store.setGameState(data.gameState);
-      store.setMyDeck(data.myDeck);
-      store.setOrderedDeck(data.myDeck);
-      store.setStatusMessage('バトル開始！');
+    // FIX 2: handle battle_result with full TurnLog[]
+    socket.on(EVENTS.BATTLE_RESULT, (data: { turnLogs: TurnLog[]; result: string }) => {
+      useGameStore.getState().setBattleLogs(data.turnLogs);
+      useGameStore.getState().setBattleResult(data.result);
+      useGameStore.getState().setPhase('battle');
     });
 
-    socket.on(EVENTS.TURN_RESULT, (data: { log: TurnLog }) => {
-      store.addBattleLog(data.log);
-      store.setGameState(data.log.stateAfter);
-      store.incrementCardIndex();
-      store.setStatusMessage(`ターン${data.log.turn}完了`);
-    });
-
-    socket.on(EVENTS.GAME_OVER, (data: { result: 'player1' | 'player2' | 'draw' }) => {
-      store.setBattleResult(data.result);
-      store.setPhase('result');
+    // FIX 5: opponent disconnected notification
+    socket.on(EVENTS.OPPONENT_DISCONNECTED, (data: { message: string }) => {
+      useGameStore.getState().setStatusMessage(data.message);
+      useGameStore.getState().setPhase('result');
     });
 
     socket.on(EVENTS.OPPONENT_READY, (data: { message: string }) => {
-      store.setStatusMessage(data.message);
+      useGameStore.getState().setStatusMessage(data.message);
     });
 
     socket.on(EVENTS.ERROR, (data: { message: string }) => {
       console.error('Server error:', data.message);
-      store.setStatusMessage(`エラー: ${data.message}`);
+      useGameStore.getState().setStatusMessage(`エラー: ${data.message}`);
     });
 
     return () => {

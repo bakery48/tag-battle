@@ -30,8 +30,7 @@ export function DraftPhase({ emit }: DraftPhaseProps) {
     <div style={{ padding: 20, maxWidth: 800, margin: '0 auto' }}>
       <h2>ドラフトフェーズ</h2>
       <div style={{ color: '#aaa', marginBottom: 8 }}>
-        {draftOffer.draftStage === 'front' ? '前衛' : '後衛'}カード選択 -
-        残り{draftOffer.picksRemaining}枚
+        残り{draftOffer.remaining}枚選択
       </div>
 
       <div style={{ marginBottom: 16 }}>
