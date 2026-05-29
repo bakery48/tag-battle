@@ -54,15 +54,22 @@ function addEvent(events: TurnEvent[], type: TurnEvent['type'], target: string, 
 }
 
 function recalcPower(m: MonsterState): void {
-  let power = m.basePower;
-  for (const s of m.statusEffects) {
-    if (s.type === 'powerUp') power += s.value;
-    if (s.type === 'powerDown') power -= s.value;
-  }
-  if (m.counter) {
-    const c = m.counter;
-    if (c.type === 'self') {
-      power += c.value;
+  let power: number;
+  // ブラッドバーサーカー: HP-scaled power (ignores counter/statusEffect powerUp stacking)
+  if (m.hpScaledPower) {
+    const ratio = m.maxHp > 0 ? 1 - (m.hp / m.maxHp) : 0;
+    power = m.basePower + Math.floor(ratio * 6);
+  } else {
+    power = m.basePower;
+    for (const s of m.statusEffects) {
+      if (s.type === 'powerUp') power += s.value;
+      if (s.type === 'powerDown') power -= s.value;
+    }
+    if (m.counter) {
+      const c = m.counter;
+      if (c.type === 'self') {
+        power += c.value;
+      }
     }
   }
   m.power = Math.max(0, power);
@@ -70,7 +77,19 @@ function recalcPower(m: MonsterState): void {
 
 function applyHpDamage(m: MonsterState, dmg: number, events: TurnEvent[], source: string): void {
   if (m.isDead) return;
-  const actual = Math.max(0, dmg);
+  let raw = Math.max(0, dmg);
+  // Armor absorption (armor status reduces incoming damage)
+  const armorIdx = m.statusEffects.findIndex((se) => se.type === 'armor');
+  if (armorIdx !== -1 && raw > 0) {
+    const armor = m.statusEffects[armorIdx];
+    const absorbed = Math.min(armor.value, raw);
+    armor.value -= absorbed;
+    raw -= absorbed;
+    if (armor.value <= 0) {
+      m.statusEffects.splice(armorIdx, 1);
+    }
+  }
+  const actual = raw;
   m.hp = Math.max(0, m.hp - actual);
   addEvent(events, 'damage', m.name, actual, `${m.name}が${actual}ダメージを受けた (${source})`);
 }
@@ -150,7 +169,17 @@ function applyEffect(
         break;
       }
       case 'powerUp': {
-        if (effect.delayed) {
+        // Check if target has 'reverse' status → flip to powerDown
+        const hasReverse = tgt.statusEffects.some((se) => se.type === 'reverse');
+        if (hasReverse) {
+          if (effect.delayed) {
+            tgt.statusEffects.push({ type: 'powerDown', value: val, duration: 2, source: 'reversed' });
+          } else {
+            tgt.basePower = Math.max(0, tgt.basePower - val);
+            recalcPower(tgt);
+            addEvent(events, 'powerChange', tgt.name, tgt.power, `リバーサー効果！${tgt.name}のバフが反転した (攻撃力=${tgt.power})`);
+          }
+        } else if (effect.delayed) {
           tgt.statusEffects.push({ type: 'powerUp', value: val, duration: 2, source: 'delayed' });
         } else {
           tgt.basePower += val;
@@ -199,6 +228,18 @@ function applyEffect(
         // Apply cover status for 1 turn
         applyStatusToMonster(tgt, 'cover', 1, val, 'card');
         addEvent(events, 'counterChange', tgt.name, 1, `${tgt.name}がカバー状態になった`);
+        break;
+      }
+      case 'applyStatus': {
+        if (!effect.statusType) break;
+        const sv = effect.statusValue ?? 1;
+        const sd = effect.statusDuration ?? 2;
+        applyStatusToMonster(tgt, effect.statusType, sv, sd, 'card');
+        addEvent(events, 'counterChange', tgt.name, sv, `${tgt.name}に${effect.statusType}(${sv})を付与`);
+        break;
+      }
+      case 'multiHit': {
+        // Handled as two separate damage effects; this case is a no-op here
         break;
       }
     }
@@ -384,13 +425,42 @@ export function resolveTurn(
         addEvent(events, 'counterTrigger', actor.name, actor.counter.value, `${actor.name}の連鎖が発動！カウンター${actor.counter.value}`);
       }
     }
+
+    // ShadowAssassin: 暗殺カウンター increments on successful rear hit (counter already added by card effect)
+    // Recalculate power after counter changes
+    if (actor.id === 'shadow-assassin' && actor.counter) {
+      recalcPower(actor);
+    }
+
+    // DoubleEdge: 連撃カウンター increments on multi-hit (counter already added by card effect)
+    // Recalculate power after counter changes
+    if (actor.id === 'double-edge' && actor.counter) {
+      recalcPower(actor);
+    }
+
+    // BloodBerserker: recalculate HP-scaled power each turn
+    if (actor.id === 'blood-berserker') {
+      recalcPower(actor);
+    }
+
+    // TimeMage: auto-increment 時空カウンター on every card play (like エールダンサー)
+    const rearMonster = p.rear;
+    if (rearMonster.id === 'time-mage' && !rearMonster.isDead && rearMonster.counter) {
+      rearMonster.counter.value++;
+    }
+    const frontMonster = p.front;
+    if (frontMonster.id === 'time-mage' && !frontMonster.isDead && frontMonster.counter) {
+      frontMonster.counter.value++;
+    }
   }
 
-  // ── Phase 5a: エールダンサー threshold check ──
+  // ── Phase 5a: threshold monster checks ──
   for (let pi = 0 as 0 | 1; pi <= 1; pi++) {
     const p = s.players[pi];
     for (const m of [p.front, p.rear]) {
       if (m.isDead) continue;
+
+      // エールダンサー: threshold=3 → all allies +1 power
       if (m.id === 'yell-dancer' && m.counter && m.counter.type === 'threshold') {
         const threshold = m.counter.threshold ?? 3;
         // Add 1 応援 for playing any card (handled here as passive)
@@ -406,6 +476,35 @@ export function resolveTurn(
           }
           m.counter.value = 0;
           addEvent(events, 'counterTrigger', m.name, 0, `${m.name}の応援カウンターが発動した`);
+        }
+      }
+
+      // ルーンガードナー: threshold=4 → apply armor(2,2) to all living allies
+      if (m.id === 'rune-guardian' && m.counter && m.counter.type === 'threshold') {
+        const threshold = m.counter.threshold ?? 4;
+        if (m.counter.value >= threshold) {
+          for (const ally of [p.front, p.rear]) {
+            if (!ally.isDead) {
+              applyStatusToMonster(ally, 'armor', 2, 2, m.id);
+            }
+          }
+          addEvent(events, 'counterTrigger', m.name, 0, `${m.name}が全味方にアーマーを付与！`);
+          m.counter.value = 0;
+        }
+      }
+
+      // タイムメイジ: threshold=2 → swap deck[t+1] with deck[t+2]
+      if (m.id === 'time-mage' && m.counter && m.counter.type === 'threshold') {
+        const threshold = m.counter.threshold ?? 2;
+        if (m.counter.value >= threshold) {
+          const t = p.currentTurn;
+          if (t + 2 < p.deck.length) {
+            const tmp = p.deck[t + 1];
+            p.deck[t + 1] = p.deck[t + 2];
+            p.deck[t + 2] = tmp;
+            addEvent(events, 'counterTrigger', m.name, 0, `${m.name}が時間を操作！次のカード順を入れ替えた`);
+          }
+          m.counter.value = 0;
         }
       }
     }
@@ -469,15 +568,28 @@ export function resolveTurn(
     }
   }
 
-  // 5c-iii: Necromancer passive: if ally front died this turn → 死霊counter++
+  // 5c-iii: Rear monster passives on ally death
   for (let pi = 0 as 0 | 1; pi <= 1; pi++) {
     const p = s.players[pi];
+
+    // Necromancer passive: if ally front died this turn → 死霊counter++
     const necro = p.rear;
     if (necro.id === 'necromancer' && !necro.isDead && necro.counter) {
       const frontDied = newlyDead.some((nd) => nd.pi === pi && nd.m === p.front);
       if (frontDied) {
         necro.counter.value++;
         addEvent(events, 'counterChange', necro.name, necro.counter.value, `${necro.name}の死霊カウンターが${necro.counter.value}になった`);
+      }
+    }
+
+    // SoulReaper passive: any ally death → 魂counter +3, recalc power
+    const soulReaper = p.rear;
+    if (soulReaper.id === 'soul-reaper' && !soulReaper.isDead && soulReaper.counter) {
+      const allyDeaths = newlyDead.filter((nd) => nd.pi === pi).length;
+      if (allyDeaths > 0) {
+        soulReaper.counter.value += allyDeaths * 3;
+        recalcPower(soulReaper);
+        addEvent(events, 'counterChange', soulReaper.name, soulReaper.counter.value, `${soulReaper.name}が魂を吸収！カウンター+${allyDeaths * 3} → ${soulReaper.counter.value}`);
       }
     }
   }
@@ -590,5 +702,6 @@ export function createMonsterState(
     counter,
     statusEffects: [],
     lastCardWasChain: false,
+    hpScaledPower: monster.hpScaledPower,
   };
 }

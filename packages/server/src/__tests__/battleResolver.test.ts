@@ -252,4 +252,91 @@ describe('battleResolver', () => {
 
     expect(nextState.result).toBe('draw');
   });
+
+  it('9. BloodBerserker: power increases as HP decreases', () => {
+    const state = makeState('blood-berserker', 'holy-priest', 'iron-golem', 'holy-priest');
+    const bb = state.players[0].front;
+    // At full HP ratio=0 → power = basePower + floor(0*6) = 4
+    expect(bb.power).toBe(4);
+    // Damage blood-berserker to half HP (6/12)
+    bb.hp = 6;
+    // Play a card to trigger recalcPower in Phase 6
+    const healCard: CardState = {
+      id: 'h1', monsterId: 'blood-berserker', name: 'Heal', description: '', type: 'heal',
+      effects: [{ trigger: 'always', target: 'self', action: 'heal', value: { kind: 'fixed', amount: 0 } }],
+    };
+    const passCard2 = defenseCard('def2', 'iron-golem');
+    const { nextState } = resolveTurn(state, healCard, passCard2);
+    // ratio = 1 - 6/12 = 0.5 → floor(0.5*6) = 3 → power = 4 + 3 = 7
+    expect(nextState.players[0].front.power).toBe(7);
+  });
+
+  it('10. RuneGuardian: armor applied to allies when 魔紋 threshold (4) reached', () => {
+    const state = makeState('rune-guardian', 'holy-priest', 'iron-golem', 'holy-priest');
+    const rg = state.players[0].front;
+    // Set counter to 3 (one below threshold)
+    rg.counter!.value = 3;
+    // Play combo card: defenseEffect + counterAdd 1
+    const comboCard: CardState = {
+      id: 'rg1', monsterId: 'rune-guardian', name: 'Rune Defense', description: '', type: 'combo',
+      effects: [
+        { trigger: 'always', target: 'self', action: 'cover', value: { kind: 'fixed', amount: 0 } },
+        { trigger: 'always', target: 'self', action: 'counterAdd', value: { kind: 'fixed', amount: 1 }, counterName: '魔紋カウンター' },
+      ],
+    };
+    const passCard3 = defenseCard('def3', 'iron-golem');
+    const { nextState } = resolveTurn(state, comboCard, passCard3);
+    const p0Front = nextState.players[0].front;
+    // Counter should have reached 4 → armor applied → counter reset to 0
+    expect(p0Front.counter?.value).toBe(0);
+    // Both allies should have armor status
+    const frontHasArmor = nextState.players[0].front.statusEffects.some((se) => se.type === 'armor');
+    expect(frontHasArmor).toBe(true);
+  });
+
+  it('11. SoulReaper: 魂カウンター increases by 3 when an ally dies', () => {
+    const state = makeState('iron-golem', 'soul-reaper', 'iron-golem', 'holy-priest');
+    const p1Front = state.players[0].front;
+    const soulReaper = state.players[0].rear;
+    // Kill p1 front this turn with massive damage
+    p1Front.hp = 1;
+    const killAttack: CardState = {
+      id: 'ka1', monsterId: 'iron-golem', name: 'Kill', description: '', type: 'attack',
+      effects: [{ trigger: 'always', target: 'enemy_front', action: 'damage', value: { kind: 'fixed', amount: 99 } }],
+    };
+    // P1 plays something that also kills itself via selfHpCost
+    const suicideCard: CardState = {
+      id: 'sc1', monsterId: 'iron-golem', name: 'Suicide', description: '', type: 'attack',
+      effects: [{ trigger: 'always', target: 'self', action: 'damage', value: { kind: 'fixed', amount: 99 }, selfHpCost: 99 }],
+    };
+    // Use a different approach: set hp to 0 manually via a card
+    const healNoop: CardState = {
+      id: 'hn1', monsterId: 'iron-golem', name: 'NoOp', description: '', type: 'heal',
+      effects: [],
+    };
+    p1Front.hp = 1;
+    // P2 attacks p1 front with 99 damage to kill it
+    const { nextState } = resolveTurn(state, healNoop, killAttack);
+    // p1 front should be dead
+    expect(nextState.players[0].front.isDead).toBe(true);
+    // SoulReaper counter should be 3
+    expect(nextState.players[0].rear.counter?.value).toBe(3);
+  });
+
+  it('12. Reverser: powerUp to reversed target becomes powerDown', () => {
+    const state = makeState('iron-golem', 'reverser', 'iron-golem', 'holy-priest');
+    const p2Front = state.players[1].front;
+    const initialPower = p2Front.power;
+    // Apply 'reverse' status to p2 front
+    p2Front.statusEffects.push({ type: 'reverse', value: 1, duration: 3, source: 'reverser' });
+    // P1 plays a buff card targeting enemy_front (powerUp)
+    const buffCard: CardState = {
+      id: 'buf1', monsterId: 'iron-golem', name: 'Buff', description: '', type: 'buff',
+      effects: [{ trigger: 'always', target: 'enemy_front', action: 'powerUp', value: { kind: 'fixed', amount: 2 } }],
+    };
+    const passCard4 = defenseCard('def4', 'iron-golem');
+    const { nextState } = resolveTurn(state, buffCard, passCard4);
+    // The powerUp should be reversed to powerDown → power decreases by 2
+    expect(nextState.players[1].front.power).toBe(Math.max(0, initialPower - 2));
+  });
 });

@@ -1,4 +1,4 @@
-import type { CardState, CardEffect, CardType, EffectValue } from '../types.js';
+import type { CardState, CardEffect, CardType, EffectValue, CardEffectTarget } from '../types.js';
 
 let _idCounter = 0;
 function genId(monsterId: string, suffix: string): string {
@@ -81,7 +81,7 @@ export function applyStatusEffect(
   statusType: string,
   statusValue: number,
   duration: number,
-  target: 'enemy_front' | 'enemy_rear' | 'self' = 'enemy_front',
+  target: CardEffectTarget = 'enemy_front',
 ): CardEffect {
   return {
     trigger: 'always',
@@ -92,7 +92,7 @@ export function applyStatusEffect(
   };
 }
 
-export function stormwindEffect(value: number, duration: number, target: 'enemy_front' | 'enemy_rear' | 'self' = 'enemy_front'): CardEffect {
+export function stormwindEffect(value: number, duration: number, target: CardEffectTarget = 'enemy_front'): CardEffect {
   return applyStatusEffect('stormwind', value, duration, target);
 }
 
