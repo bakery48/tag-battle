@@ -1,0 +1,594 @@
+import type {
+  GameState, PlayerState, MonsterState, CardState, CardEffect,
+  EffectValue, TurnEvent, TurnLog, StatusEffect, CounterInfo,
+  MonsterMaster,
+} from './types.js';
+
+// ──────────────────────────────────────────────
+// Helpers
+// ──────────────────────────────────────────────
+
+function cloneState(state: GameState): GameState {
+  return JSON.parse(JSON.stringify(state)) as GameState;
+}
+
+function resolveValue(v: EffectValue, actingPower: number, counterValue: number): number {
+  switch (v.kind) {
+    case 'fixed': return v.amount;
+    case 'power': return Math.floor(actingPower * (v.factor ?? 1)) + (v.bonus ?? 0);
+    case 'powerMul': return actingPower * v.factor;
+    case 'counterRef': return actingPower * counterValue * (v.multiplier ?? 1);
+  }
+}
+
+function getActingMonster(p: PlayerState): MonsterState {
+  return p.front.isDead ? p.rear : p.front;
+}
+
+function resolveTarget(
+  target: CardEffect['target'],
+  state: GameState,
+  actingPlayerIdx: 0 | 1,
+): MonsterState | MonsterState[] {
+  const p = state.players[actingPlayerIdx];
+  const opp = state.players[actingPlayerIdx === 0 ? 1 : 0];
+
+  switch (target) {
+    case 'self': return getActingMonster(p);
+    case 'ally_front': return p.front;
+    case 'ally_rear': return p.rear;
+    case 'ally_all': return [p.front, p.rear];
+    case 'enemy_front':
+      return opp.front.isDead ? opp.rear : opp.front;
+    case 'enemy_rear': {
+      // Check cover: if opp.front has 'cover' status and is alive → intercept
+      const hasCover = !opp.front.isDead && opp.front.statusEffects.some((s) => s.type === 'cover');
+      return hasCover ? opp.front : opp.rear;
+    }
+    case 'enemy_all': return [opp.front, opp.rear];
+  }
+}
+
+function addEvent(events: TurnEvent[], type: TurnEvent['type'], target: string, value: number | undefined, message: string): void {
+  events.push({ type, target, value, message });
+}
+
+function recalcPower(m: MonsterState): void {
+  let power = m.basePower;
+  for (const s of m.statusEffects) {
+    if (s.type === 'powerUp') power += s.value;
+    if (s.type === 'powerDown') power -= s.value;
+  }
+  if (m.counter) {
+    const c = m.counter;
+    if (c.type === 'self') {
+      power += c.value;
+    }
+  }
+  m.power = Math.max(0, power);
+}
+
+function applyHpDamage(m: MonsterState, dmg: number, events: TurnEvent[], source: string): void {
+  if (m.isDead) return;
+  const actual = Math.max(0, dmg);
+  m.hp = Math.max(0, m.hp - actual);
+  addEvent(events, 'damage', m.name, actual, `${m.name}が${actual}ダメージを受けた (${source})`);
+}
+
+function applyHeal(m: MonsterState, amount: number, events: TurnEvent[]): void {
+  if (m.isDead) return;
+  const before = m.hp;
+  m.hp = Math.min(m.maxHp, m.hp + amount);
+  const healed = m.hp - before;
+  addEvent(events, 'heal', m.name, healed, `${m.name}のHPが${healed}回復した`);
+}
+
+function parseStatusCounterName(counterName: string): { type: string; duration: number } | null {
+  if (!counterName.startsWith('__status__')) return null;
+  const parts = counterName.split('__');
+  // parts: ['', 'status', type, duration]
+  if (parts.length < 4) return null;
+  const type = parts[2];
+  const duration = parseInt(parts[3], 10);
+  if (isNaN(duration) || !type) return null;
+  return { type, duration };
+}
+
+function applyStatusToMonster(m: MonsterState, statusType: string, statusValue: number, duration: number, source: string): void {
+  // Stack or add status
+  const existing = m.statusEffects.find((s) => s.type === statusType && s.source === source);
+  if (existing) {
+    existing.value += statusValue;
+    existing.duration = Math.max(existing.duration, duration);
+  } else {
+    m.statusEffects.push({ type: statusType, value: statusValue, duration, source });
+  }
+}
+
+function incrementCounter(m: MonsterState, counterName: string, amount: number, events: TurnEvent[]): void {
+  if (!m.counter) return;
+  if (counterName === '' || m.counter.name === counterName) {
+    m.counter.value += amount;
+    addEvent(events, 'counterChange', m.name, m.counter.value, `${m.name}の${m.counter.name}が${m.counter.value}になった`);
+  }
+}
+
+// ──────────────────────────────────────────────
+// Effect application
+// ──────────────────────────────────────────────
+
+interface ResolvedEffect {
+  effect: CardEffect;
+  actingPower: number;
+  actingPlayerIdx: 0 | 1;
+  counterValue: number;
+  nullified: boolean;
+}
+
+function applyEffect(
+  re: ResolvedEffect,
+  state: GameState,
+  events: TurnEvent[],
+): void {
+  if (re.nullified) return;
+  const { effect, actingPower, actingPlayerIdx, counterValue } = re;
+  const targets = resolveTarget(effect.target, state, actingPlayerIdx);
+  const targetArr: MonsterState[] = Array.isArray(targets) ? targets : [targets];
+
+  for (const tgt of targetArr) {
+    if (tgt.isDead && effect.action !== 'revive') continue;
+
+    const val = resolveValue(effect.value, actingPower, counterValue);
+
+    switch (effect.action) {
+      case 'damage': {
+        applyHpDamage(tgt, val, events, 'card');
+        break;
+      }
+      case 'heal': {
+        applyHeal(tgt, val, events);
+        break;
+      }
+      case 'powerUp': {
+        if (effect.delayed) {
+          tgt.statusEffects.push({ type: 'powerUp', value: val, duration: 2, source: 'delayed' });
+        } else {
+          tgt.basePower += val;
+          recalcPower(tgt);
+          addEvent(events, 'powerChange', tgt.name, tgt.power, `${tgt.name}の攻撃力が${tgt.power}になった`);
+        }
+        break;
+      }
+      case 'powerDown': {
+        if (effect.delayed) {
+          tgt.statusEffects.push({ type: 'powerDown', value: val, duration: 2, source: 'delayed' });
+        } else {
+          tgt.basePower = Math.max(0, tgt.basePower - val);
+          recalcPower(tgt);
+          addEvent(events, 'powerChange', tgt.name, tgt.power, `${tgt.name}の攻撃力が${tgt.power}になった`);
+        }
+        break;
+      }
+      case 'counterAdd': {
+        // Check if this is a status effect application
+        if (effect.counterName) {
+          const parsed = parseStatusCounterName(effect.counterName);
+          if (parsed) {
+            applyStatusToMonster(tgt, parsed.type, val, parsed.duration, 'card');
+            addEvent(events, 'counterChange', tgt.name, val, `${tgt.name}に${parsed.type}(${val})が付与された`);
+            break;
+          }
+        }
+        // Regular counter increment
+        incrementCounter(tgt, effect.counterName ?? '', val, events);
+        break;
+      }
+      case 'counterReduce': {
+        if (tgt.counter) {
+          tgt.counter.value = Math.max(0, tgt.counter.value - val);
+          addEvent(events, 'counterChange', tgt.name, tgt.counter.value, `${tgt.name}のカウンターが${tgt.counter.value}になった`);
+        }
+        break;
+      }
+      case 'revive': {
+        // Handled in Phase 5c
+        break;
+      }
+      case 'cover': {
+        if (val === 0) break; // plain defense (val=0 means it's a defense card, handled by phase 2)
+        // Apply cover status for 1 turn
+        applyStatusToMonster(tgt, 'cover', 1, val, 'card');
+        addEvent(events, 'counterChange', tgt.name, 1, `${tgt.name}がカバー状態になった`);
+        break;
+      }
+    }
+  }
+}
+
+// ──────────────────────────────────────────────
+// Main resolver
+// ──────────────────────────────────────────────
+
+export function resolveTurn(
+  state: GameState,
+  p1Card: CardState,
+  p2Card: CardState,
+): { nextState: GameState; log: TurnLog } {
+  const s = cloneState(state);
+  const events: TurnEvent[] = [];
+  const cards: [CardState, CardState] = [p1Card, p2Card];
+
+  // ── Phase 0: Stormwind pre-effect check ──
+  for (let pi = 0 as 0 | 1; pi <= 1; pi++) {
+    const p = s.players[pi];
+    const allMonsters: MonsterState[] = [p.front, p.rear];
+    for (const m of allMonsters) {
+      if (m.isDead) continue;
+      const swIdx = m.statusEffects.findIndex((se) => se.type === 'stormwind');
+      if (swIdx === -1) continue;
+      const sw = m.statusEffects[swIdx];
+      applyHpDamage(m, sw.value, events, 'stormwind');
+      addEvent(events, 'stormwind', m.name, sw.value, `${m.name}が嵐風で${sw.value}ダメージを受けた`);
+      sw.duration--;
+      if (sw.duration <= 0) {
+        m.statusEffects.splice(swIdx, 1);
+      }
+    }
+  }
+
+  // ── Phase 1: Collect card effects ──
+  const resolvedEffects: ResolvedEffect[] = [];
+
+  for (let pi = 0 as 0 | 1; pi <= 1; pi++) {
+    const p = s.players[pi];
+    const card = cards[pi];
+    const actor = getActingMonster(p);
+    const actingPower = actor.power;
+    const counterValue = actor.counter?.value ?? 0;
+
+    // selfHpCost (death-knight)
+    for (const effect of card.effects) {
+      if (effect.selfHpCost && effect.selfHpCost > 0) {
+        applyHpDamage(actor, effect.selfHpCost, events, 'selfHpCost');
+      }
+    }
+
+    for (const effect of card.effects) {
+      // ifLowHp: only if actor HP < 30% of maxHp
+      if (effect.trigger === 'ifLowHp' && actor.hp >= actor.maxHp * 0.3) continue;
+      resolvedEffects.push({
+        effect,
+        actingPower,
+        actingPlayerIdx: pi,
+        counterValue,
+        nullified: false,
+      });
+    }
+  }
+
+  // ── Phase 2: Defense nullification ──
+  const p1IsDefense = p1Card.type === 'defense';
+  const p2IsDefense = p2Card.type === 'defense';
+  const p1IsAttacking = p1Card.type === 'attack' || p1Card.type === 'combo';
+  const p2IsAttacking = p2Card.type === 'attack' || p2Card.type === 'combo';
+
+  if (p1IsDefense && p2IsAttacking) {
+    // Nullify p2 damage effects, keep p1's onBlock effects
+    for (const re of resolvedEffects) {
+      if (re.actingPlayerIdx === 1 && re.effect.action === 'damage') {
+        re.nullified = true;
+      }
+    }
+    addEvent(events, 'blocked', s.players[0].front.name, undefined, `${s.players[0].front.name}がブロックした`);
+    // Activate p1 onBlock effects
+    for (const re of resolvedEffects) {
+      if (re.actingPlayerIdx === 0 && re.effect.trigger === 'onBlock') {
+        re.nullified = false; // ensure active
+      }
+    }
+  } else {
+    // onBlock effects from p1 are not triggered
+    for (const re of resolvedEffects) {
+      if (re.actingPlayerIdx === 0 && re.effect.trigger === 'onBlock') {
+        re.nullified = true;
+      }
+    }
+  }
+
+  if (p2IsDefense && p1IsAttacking) {
+    for (const re of resolvedEffects) {
+      if (re.actingPlayerIdx === 0 && re.effect.action === 'damage') {
+        re.nullified = true;
+      }
+    }
+    addEvent(events, 'blocked', s.players[1].front.name, undefined, `${s.players[1].front.name}がブロックした`);
+    for (const re of resolvedEffects) {
+      if (re.actingPlayerIdx === 1 && re.effect.trigger === 'onBlock') {
+        re.nullified = false;
+      }
+    }
+  } else {
+    for (const re of resolvedEffects) {
+      if (re.actingPlayerIdx === 1 && re.effect.trigger === 'onBlock') {
+        re.nullified = true;
+      }
+    }
+  }
+
+  // ── Phase 3: Apply surviving effects simultaneously ──
+  // (Powers already snapshotted in Phase 1 via actingPower stored in resolvedEffects)
+  for (const re of resolvedEffects) {
+    if (re.effect.trigger === 'onBlock') {
+      // Only apply if NOT nullified
+      if (!re.nullified) applyEffect(re, s, events);
+    } else if (re.effect.delayed) {
+      // Delayed effects: add status with duration 2
+      const targets = resolveTarget(re.effect.target, s, re.actingPlayerIdx);
+      const targetArr: MonsterState[] = Array.isArray(targets) ? targets : [targets];
+      const val = resolveValue(re.effect.value, re.actingPower, re.counterValue);
+      for (const tgt of targetArr) {
+        if (tgt.isDead) continue;
+        if (re.effect.action === 'powerDown') {
+          tgt.statusEffects.push({ type: 'powerDown', value: val, duration: 2, source: 'delayed' });
+        } else if (re.effect.action === 'powerUp') {
+          tgt.statusEffects.push({ type: 'powerUp', value: val, duration: 2, source: 'delayed' });
+        }
+      }
+    } else {
+      applyEffect(re, s, events);
+    }
+  }
+
+  // ── Phase 4: Monster-specific counter passives ──
+  for (let pi = 0 as 0 | 1; pi <= 1; pi++) {
+    const p = s.players[pi];
+    const card = cards[pi];
+    const actor = getActingMonster(p);
+    const opp = s.players[pi === 0 ? 1 : 0];
+
+    // Berserk: 激昂 counter triggers on attack
+    if (actor.id === 'berserk' && (card.type === 'attack' || card.type === 'combo') && actor.counter) {
+      // Counter was already incremented by card effect if combo; if pure attack card, passive doesn't add extra
+      // Recalculate power after counter
+      recalcPower(actor);
+    }
+
+    // VampireLord: heal on damage dealt
+    if (actor.id === 'vampire-lord' && actor.counter) {
+      const didDamage = resolvedEffects.some(
+        (re) => re.actingPlayerIdx === pi && re.effect.action === 'damage' && !re.nullified,
+      );
+      if (didDamage && actor.counter.value > 0) {
+        const healAmt = actor.counter.value * 1;
+        applyHeal(p.front, healAmt, events);
+      }
+    }
+
+    // DeathKnight: selfHpCost was already applied; recalculate power
+    if (actor.id === 'death-knight' && actor.counter) {
+      recalcPower(actor);
+    }
+
+    // StormWarlock: 嵐 counter applied per status effect card (already incremented by counterAdd)
+    if (actor.id === 'storm-warlock' && actor.counter) {
+      recalcPower(actor);
+    }
+
+    // ChainSoldier: chain condition
+    if (actor.id === 'chain-soldier' && actor.counter) {
+      const isChainCard = card.effects.some(
+        (e) => e.action === 'counterAdd' && e.counterName === '連鎖カウンター',
+      );
+      if (isChainCard && actor.lastCardWasChain) {
+        actor.counter.value++;
+        addEvent(events, 'counterTrigger', actor.name, actor.counter.value, `${actor.name}の連鎖が発動！カウンター${actor.counter.value}`);
+      }
+    }
+  }
+
+  // ── Phase 5a: エールダンサー threshold check ──
+  for (let pi = 0 as 0 | 1; pi <= 1; pi++) {
+    const p = s.players[pi];
+    for (const m of [p.front, p.rear]) {
+      if (m.isDead) continue;
+      if (m.id === 'yell-dancer' && m.counter && m.counter.type === 'threshold') {
+        const threshold = m.counter.threshold ?? 3;
+        // Add 1 応援 for playing any card (handled here as passive)
+        m.counter.value++;
+        if (m.counter.value >= threshold) {
+          // All living allies gain powerUp +1
+          for (const ally of [p.front, p.rear]) {
+            if (!ally.isDead) {
+              ally.basePower += 1;
+              recalcPower(ally);
+              addEvent(events, 'powerChange', ally.name, ally.power, `${m.name}の応援効果！${ally.name}の攻撃力が${ally.power}になった`);
+            }
+          }
+          m.counter.value = 0;
+          addEvent(events, 'counterTrigger', m.name, 0, `${m.name}の応援カウンターが発動した`);
+        }
+      }
+    }
+  }
+
+  // ── Phase 5b: Apply-type end-of-turn damage (curse, poison) ──
+  for (let pi = 0 as 0 | 1; pi <= 1; pi++) {
+    const p = s.players[pi];
+    for (const m of [p.front, p.rear]) {
+      if (m.isDead) continue;
+      for (const se of m.statusEffects) {
+        if (se.type === 'curse' || se.type === 'poison') {
+          applyHpDamage(m, se.value, events, se.type);
+        }
+      }
+    }
+  }
+
+  // ── Phase 5c: Death check → Revive → Win condition ──
+
+  // 5c-i: Mark dead
+  const newlyDead: Array<{ m: MonsterState; pi: 0 | 1 }> = [];
+  for (let pi = 0 as 0 | 1; pi <= 1; pi++) {
+    const p = s.players[pi];
+    for (const m of [p.front, p.rear]) {
+      if (!m.isDead && m.hp <= 0) {
+        m.isDead = true;
+        addEvent(events, 'death', m.name, undefined, `${m.name}が倒れた`);
+        newlyDead.push({ m, pi });
+      }
+    }
+  }
+
+  // 5c-ii: Revive checks for newly dead
+  for (const { m, pi } of newlyDead) {
+    // Phoenix revive
+    if (m.id === 'phoenix-warrior' && m.canRevive && !m.hasRevived) {
+      m.isDead = false;
+      m.hp = Math.max(1, Math.floor(m.maxHp / 2));
+      m.hasRevived = true;
+      if (m.counter) {
+        m.counter.value += 5;
+      }
+      recalcPower(m);
+      addEvent(events, 'revive', m.name, m.hp, `${m.name}が炎から蘇った！`);
+    }
+
+    // HolyPriest revive: handled by card play 'revive' action
+    // Check if a revive card was played this turn for ally_front
+    const p = s.players[pi];
+    const card = cards[pi];
+    const hasReviveCard = card.effects.some((e) => e.action === 'revive' && e.target === 'ally_front');
+    if (hasReviveCard && m === p.front && !m.canRevive) {
+      m.isDead = false;
+      const baseHp = Math.max(1, Math.floor(m.maxHp / 2));
+      // Necromancer bonus: add 死霊カウンター value
+      const necro = p.rear;
+      const necroBonus = necro.id === 'necromancer' && necro.counter ? necro.counter.value : 0;
+      m.hp = Math.min(m.maxHp, baseHp + necroBonus);
+      addEvent(events, 'revive', m.name, m.hp, `${m.name}が蘇生された！HP=${m.hp}`);
+    }
+  }
+
+  // 5c-iii: Necromancer passive: if ally front died this turn → 死霊counter++
+  for (let pi = 0 as 0 | 1; pi <= 1; pi++) {
+    const p = s.players[pi];
+    const necro = p.rear;
+    if (necro.id === 'necromancer' && !necro.isDead && necro.counter) {
+      const frontDied = newlyDead.some((nd) => nd.pi === pi && nd.m === p.front);
+      if (frontDied) {
+        necro.counter.value++;
+        addEvent(events, 'counterChange', necro.name, necro.counter.value, `${necro.name}の死霊カウンターが${necro.counter.value}になった`);
+      }
+    }
+  }
+
+  // 5c-iv: Win condition
+  const p0Dead = s.players[0].front.isDead && s.players[0].rear.isDead;
+  const p1Dead = s.players[1].front.isDead && s.players[1].rear.isDead;
+
+  if (p0Dead && p1Dead) {
+    s.result = 'draw';
+  } else if (p0Dead) {
+    s.result = 'player2';
+  } else if (p1Dead) {
+    s.result = 'player1';
+  }
+
+  if (s.result) {
+    s.phase = 'result';
+  }
+
+  // ── Phase 6: Bookkeeping ──
+
+  // ChainSoldier: update lastCardWasChain
+  for (let pi = 0 as 0 | 1; pi <= 1; pi++) {
+    const p = s.players[pi];
+    const actor = getActingMonster(p);
+    const card = cards[pi];
+    if (actor.id === 'chain-soldier') {
+      actor.lastCardWasChain = card.effects.some(
+        (e) => e.action === 'counterAdd' && e.counterName === '連鎖カウンター',
+      );
+    } else {
+      actor.lastCardWasChain = false;
+    }
+  }
+
+  // Apply delayed status effects → recalculate power
+  for (let pi = 0 as 0 | 1; pi <= 1; pi++) {
+    const p = s.players[pi];
+    for (const m of [p.front, p.rear]) {
+      recalcPower(m);
+    }
+  }
+
+  // Decrement status durations (non-stormwind, stormwind decremented in phase 0)
+  for (let pi = 0 as 0 | 1; pi <= 1; pi++) {
+    const p = s.players[pi];
+    for (const m of [p.front, p.rear]) {
+      m.statusEffects = m.statusEffects.filter((se) => {
+        if (se.type === 'stormwind') return true; // managed in phase 0
+        se.duration--;
+        return se.duration > 0;
+      });
+    }
+  }
+
+  // After decrement, recalc power again for powerUp/powerDown status effects
+  for (let pi = 0 as 0 | 1; pi <= 1; pi++) {
+    const p = s.players[pi];
+    for (const m of [p.front, p.rear]) {
+      recalcPower(m);
+    }
+  }
+
+  // Increment turn
+  s.turn++;
+
+  // Update deck currentTurn
+  s.players[0].currentTurn++;
+  s.players[1].currentTurn++;
+
+  const log: TurnLog = {
+    turn: state.turn,
+    player1Card: p1Card,
+    player2Card: p2Card,
+    events,
+    stateAfter: s,
+  };
+
+  return { nextState: s, log };
+}
+
+// ──────────────────────────────────────────────
+// Game initialization helpers
+// ──────────────────────────────────────────────
+
+export function createMonsterState(
+  monster: MonsterMaster,
+): MonsterState {
+  let counter: CounterInfo | undefined;
+  if (monster.counterDef) {
+    counter = {
+      name: monster.counterDef.name,
+      value: 0,
+      type: monster.counterDef.type,
+      threshold: monster.counterDef.threshold,
+    };
+  }
+  return {
+    id: monster.id,
+    name: monster.name,
+    role: monster.role,
+    hp: monster.hp,
+    maxHp: monster.hp,
+    power: monster.power,
+    basePower: monster.power,
+    isDead: false,
+    canRevive: monster.canRevive,
+    hasRevived: false,
+    counter,
+    statusEffects: [],
+    lastCardWasChain: false,
+  };
+}
