@@ -4,7 +4,6 @@ import type {
 } from '@tag-battle/shared';
 import {
   getMonsterById, createMonsterState, resolveTurn,
-  MONSTERS, FRONT_MONSTERS, REAR_MONSTERS,
   getCardsForMonster, CARDS_BY_MONSTER,
 } from '@tag-battle/shared';
 import { EVENTS } from './events.js';
@@ -77,12 +76,16 @@ export class GameRoom {
 
     const frontMonster = getMonsterById(front);
     const rearMonster = getMonsterById(rear);
-    if (!frontMonster || (frontMonster.role !== 'front' && frontMonster.role !== 'both')) {
+    if (!frontMonster) {
       this.emitToPlayer(playerIdx, EVENTS.ERROR, { message: 'Invalid front monster' });
       return;
     }
-    if (!rearMonster || (rearMonster.role !== 'rear' && rearMonster.role !== 'both')) {
+    if (!rearMonster) {
       this.emitToPlayer(playerIdx, EVENTS.ERROR, { message: 'Invalid rear monster' });
+      return;
+    }
+    if (front === rear) {
+      this.emitToPlayer(playerIdx, EVENTS.ERROR, { message: 'Front and rear must be different monsters' });
       return;
     }
 

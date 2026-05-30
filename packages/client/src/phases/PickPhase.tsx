@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FRONT_MONSTERS, REAR_MONSTERS } from '@tag-battle/shared';
+import { MONSTERS } from '@tag-battle/shared';
 import type { MonsterMaster } from '@tag-battle/shared';
 import { useGameStore } from '../store/gameStore.js';
 import { EVENTS } from '../events.js';
@@ -8,9 +8,44 @@ interface PickPhaseProps {
   emit: (event: string, data: unknown) => void;
 }
 
+function RoleBadge({ role }: { role: MonsterMaster['role'] }) {
+  if (role === 'front') {
+    return (
+      <span style={{
+        fontSize: '0.65rem',
+        padding: '1px 4px',
+        borderRadius: '3px',
+        background: '#1e3a5f',
+        color: '#7eb8f7',
+        marginLeft: '4px',
+        verticalAlign: 'middle',
+      }}>
+        前衛向
+      </span>
+    );
+  }
+  if (role === 'rear') {
+    return (
+      <span style={{
+        fontSize: '0.65rem',
+        padding: '1px 4px',
+        borderRadius: '3px',
+        background: '#1a3a1e',
+        color: '#7ef79a',
+        marginLeft: '4px',
+        verticalAlign: 'middle',
+      }}>
+        後衛向
+      </span>
+    );
+  }
+  // role === 'both': no badge
+  return null;
+}
+
 function MonsterSelectCard({
-  monster, selected, onClick
-}: { monster: MonsterMaster; selected: boolean; onClick: () => void }) {
+  monster, selected, disabled, onClick
+}: { monster: MonsterMaster; selected: boolean; disabled: boolean; onClick: () => void }) {
   const catColors: Record<string, string> = {
     '攻撃':'#ef4444','防御':'#3b82f6','特殊':'#a855f7',
     '回復':'#22c55e','妨害':'#f59e0b','補助':'#06b6d4',
@@ -19,23 +54,27 @@ function MonsterSelectCard({
 
   return (
     <div
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
       style={{
         border: `2px solid ${selected ? 'var(--gold)' : color + '66'}`,
         borderRadius: 'var(--radius-md)',
         padding: '10px 14px',
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
         background: selected ? '#2d2d0055' : 'var(--bg-card)',
         transition: 'all .15s ease',
         boxShadow: selected ? '0 0 16px var(--gold)88' : 'none',
         animation: selected ? 'glow-gold 1.8s ease-in-out infinite' : 'none',
         minWidth: 200,
+        opacity: disabled ? 0.35 : 1,
       }}
-      onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLDivElement).style.borderColor = color; }}
-      onMouseLeave={e => { if (!selected) (e.currentTarget as HTMLDivElement).style.borderColor = color+'66'; }}
+      onMouseEnter={e => { if (!selected && !disabled) (e.currentTarget as HTMLDivElement).style.borderColor = color; }}
+      onMouseLeave={e => { if (!selected && !disabled) (e.currentTarget as HTMLDivElement).style.borderColor = color+'66'; }}
     >
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
-        <span style={{ fontWeight:700 }}>{monster.name}</span>
+        <span style={{ fontWeight:700 }}>
+          {monster.name}
+          <RoleBadge role={monster.role} />
+        </span>
         <span style={{
           fontSize:'.65rem', padding:'1px 6px', borderRadius:99, fontWeight:700,
           background: color+'22', color, border:`1px solid ${color}66`,
@@ -74,6 +113,10 @@ export function PickPhase({ emit }: PickPhaseProps) {
     );
   }
 
+  // Find names for the summary line
+  const frontName = MONSTERS.find(m => m.id === myFrontPick)?.name;
+  const rearName = MONSTERS.find(m => m.id === myRearPick)?.name;
+
   return (
     <div className="page" style={{ maxWidth:960, margin:'0 auto', alignItems:'flex-start' }}>
       <div className="phase-header" style={{ maxWidth:'100%' }}>
@@ -93,10 +136,11 @@ export function PickPhase({ emit }: PickPhaseProps) {
             )}
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {FRONT_MONSTERS.map(m => (
+            {MONSTERS.map(m => (
               <MonsterSelectCard
                 key={m.id} monster={m}
                 selected={myFrontPick === m.id}
+                disabled={myRearPick === m.id}
                 onClick={() => setMyFrontPick(m.id)}
               />
             ))}
@@ -112,10 +156,11 @@ export function PickPhase({ emit }: PickPhaseProps) {
             )}
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {REAR_MONSTERS.map(m => (
+            {MONSTERS.map(m => (
               <MonsterSelectCard
                 key={m.id} monster={m}
                 selected={myRearPick === m.id}
+                disabled={myFrontPick === m.id}
                 onClick={() => setMyRearPick(m.id)}
               />
             ))}
@@ -128,13 +173,9 @@ export function PickPhase({ emit }: PickPhaseProps) {
         {myFrontPick && myRearPick && (
           <div style={{ marginBottom:10, color:'var(--silver)', fontSize:'.85rem' }}>
             選択:&ensp;
-            <strong style={{ color:'#e2e8f0' }}>
-              {FRONT_MONSTERS.find(m => m.id === myFrontPick)?.name}
-            </strong>
+            <strong style={{ color:'#e2e8f0' }}>{frontName}</strong>
             &ensp;+&ensp;
-            <strong style={{ color:'#e2e8f0' }}>
-              {REAR_MONSTERS.find(m => m.id === myRearPick)?.name}
-            </strong>
+            <strong style={{ color:'#e2e8f0' }}>{rearName}</strong>
           </div>
         )}
         <button

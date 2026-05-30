@@ -37,7 +37,7 @@ export const MONSTERS: MonsterMaster[] = [
   {
     id: 'mirror-knight',
     name: 'ミラーナイト',
-    role: 'front',
+    role: 'both',
     hp: 20,
     power: 4,
     category: '防御',
@@ -58,7 +58,7 @@ export const MONSTERS: MonsterMaster[] = [
   {
     id: 'skeleton-lancer',
     name: 'スケルトンランサー',
-    role: 'front',
+    role: 'both',
     hp: 19,
     power: 4,
     category: '攻撃',
@@ -79,7 +79,7 @@ export const MONSTERS: MonsterMaster[] = [
   {
     id: 'storm-warlock',
     name: 'ストームウォーロック',
-    role: 'front',
+    role: 'both',
     hp: 17,
     power: 5,
     category: '特殊',
@@ -122,7 +122,7 @@ export const MONSTERS: MonsterMaster[] = [
   {
     id: 'shadow-witch',
     name: 'シャドウウィッチ',
-    role: 'rear',
+    role: 'both',
     hp: 9,
     power: 5,
     category: '攻撃',
@@ -175,7 +175,7 @@ export const MONSTERS: MonsterMaster[] = [
   {
     id: 'echo-mage',
     name: 'エコーメイジ',
-    role: 'rear',
+    role: 'both',
     hp: 8,
     power: 3,
     category: '特殊',
@@ -185,7 +185,7 @@ export const MONSTERS: MonsterMaster[] = [
   {
     id: 'storm-shaman',
     name: 'ストームシャーマン',
-    role: 'rear',
+    role: 'both',
     hp: 9,
     power: 2,
     category: '攻撃',
@@ -408,8 +408,8 @@ export const MONSTERS: MonsterMaster[] = [
   },
 ];
 
-export const FRONT_MONSTERS = MONSTERS.filter((m) => m.role === 'front' || m.role === 'both');
-export const REAR_MONSTERS = MONSTERS.filter((m) => m.role === 'rear' || m.role === 'both');
+export const FRONT_MONSTERS = MONSTERS; // all monsters available as front
+export const REAR_MONSTERS = MONSTERS;  // all monsters available as rear
 
 export function getMonsterById(id: string): MonsterMaster | undefined {
   return MONSTERS.find((m) => m.id === id);
