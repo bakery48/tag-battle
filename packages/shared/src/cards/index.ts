@@ -35,6 +35,7 @@ export { foolJesterCards } from './fool-jester.js';
 export { shadowPuppeteerCards } from './shadow-puppeteer.js';
 export { stormDancerCards } from './storm-dancer.js';
 export { mirrorSageCards } from './mirror-sage.js';
+export { furyBeastCards } from './fury-beast.js';
 
 import { ironGolemCards } from './iron-golem.js';
 import { berserkCards } from './berserk.js';
@@ -73,6 +74,7 @@ import { foolJesterCards } from './fool-jester.js';
 import { shadowPuppeteerCards } from './shadow-puppeteer.js';
 import { stormDancerCards } from './storm-dancer.js';
 import { mirrorSageCards } from './mirror-sage.js';
+import { furyBeastCards } from './fury-beast.js';
 import type { CardState } from '../types.js';
 
 export const ALL_CARDS: CardState[] = [
@@ -113,6 +115,7 @@ export const ALL_CARDS: CardState[] = [
   ...shadowPuppeteerCards,
   ...stormDancerCards,
   ...mirrorSageCards,
+  ...furyBeastCards,
 ];
 
 export const CARDS_BY_MONSTER: Record<string, CardState[]> = {
@@ -153,6 +156,7 @@ export const CARDS_BY_MONSTER: Record<string, CardState[]> = {
   'shadow-puppeteer': shadowPuppeteerCards,
   'storm-dancer': stormDancerCards,
   'mirror-sage': mirrorSageCards,
+  'fury-beast': furyBeastCards,
 };
 
 export function getCardsForMonster(monsterId: string): CardState[] {

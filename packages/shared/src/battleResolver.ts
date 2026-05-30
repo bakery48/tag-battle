@@ -72,6 +72,10 @@ function recalcPower(m: MonsterState): void {
       }
     }
   }
+  // Transformed state power bonus
+  if (m.isTransformed && m.transformPowerBonus) {
+    power += m.transformPowerBonus;
+  }
   m.power = Math.max(0, power);
 }
 
@@ -337,6 +341,12 @@ export function resolveTurn(
     for (const effect of card.effects) {
       // Skip effects that only fire in a specific position if card owner is in wrong position
       if (effect.positionTrigger && effect.positionTrigger !== cardOwner.role) continue;
+      // Skip effects whose transformTrigger doesn't match actor's current state
+      if (effect.transformTrigger) {
+        const actorIsTransformed = actor.isTransformed ?? false;
+        if (effect.transformTrigger === 'normal' && actorIsTransformed) continue;
+        if (effect.transformTrigger === 'transformed' && !actorIsTransformed) continue;
+      }
       // ifLowHp: only if actor HP < 30% of maxHp
       if (effect.trigger === 'ifLowHp' && actor.hp >= actor.maxHp * 0.3) continue;
       resolvedEffects.push({
@@ -631,6 +641,17 @@ export function resolveTurn(
         }
       }
 
+      // 激昂の獣王: threshold=4 → transform! Power surges, isTransformed = true.
+      if (m.id === 'fury-beast' && m.counter && m.counter.type === 'threshold' && !m.isTransformed) {
+        const threshold = m.counter.threshold ?? 4;
+        if (m.counter.value >= threshold) {
+          m.isTransformed = true;
+          m.counter.value = 0; // reset counter after transform
+          recalcPower(m);      // apply transformPowerBonus
+          addEvent(events, 'transform', m.name, m.power, `${m.name}が変身した！パワーが${m.power}に覚醒！`);
+        }
+      }
+
       // タイムメイジ: threshold=2 → swap deck[t+1] with deck[t+2]
       if (m.id === 'time-mage' && m.counter && m.counter.type === 'threshold') {
         const threshold = m.counter.threshold ?? 2;
@@ -842,5 +863,7 @@ export function createMonsterState(
     statusEffects: [],
     lastCardWasChain: false,
     hpScaledPower: monster.hpScaledPower,
+    transformPowerBonus: monster.transformPowerBonus,
+    isTransformed: false,
   };
 }

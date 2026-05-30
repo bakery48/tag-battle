@@ -424,4 +424,62 @@ describe('battleResolver', () => {
     expect(nextState.players[0].front.hp).toBe(Math.min(8, frontMaxHp));
     expect(nextState.players[0].rear.hp).toBe(Math.min(5, rearMaxHp));
   });
+
+  it('17. fury-beast: transforms when 激昂カウンター reaches threshold, power surges', () => {
+    const state = makeState('fury-beast', 'holy-priest', 'iron-golem', 'holy-priest');
+    const beast = state.players[0].front;
+    expect(beast.isTransformed).toBe(false);
+    const basePower = beast.power; // 4
+
+    // Set counter to 3 (one below threshold of 4)
+    beast.counter!.value = 3;
+
+    // Play a card that adds 1 to counter (reaching threshold 4 → transform)
+    const counterCard: CardState = {
+      id: 'fc1', monsterId: 'fury-beast', name: 'Fury', description: '', type: 'combo',
+      effects: [
+        { trigger: 'always', target: 'self', action: 'counterAdd', value: { kind: 'fixed', amount: 1 }, counterName: '激昂カウンター' },
+      ],
+    };
+    const passCard = defenseCard('def-fury', 'iron-golem');
+    const { nextState, log } = resolveTurn(state, counterCard, passCard);
+
+    // Should be transformed
+    expect(nextState.players[0].front.isTransformed).toBe(true);
+    // Power should include transformPowerBonus (4 base + 4 bonus = 8)
+    expect(nextState.players[0].front.power).toBe(basePower + 4);
+    // Transform event should be in log
+    expect(log.events.some((e) => e.type === 'transform')).toBe(true);
+  });
+
+  it('18. fury-beast: transformTrigger — normal card fires before transform, transformed card fires after', () => {
+    const state = makeState('fury-beast', 'holy-priest', 'iron-golem', 'holy-priest');
+    const beast = state.players[0].front;
+    beast.hp = 10; // reduce HP so heal can raise it
+    const p2Hp = state.players[1].front.hp;
+
+    // A dual-state card: normal→heal self 3, transformed→attack enemy 99
+    const dualCard: CardState = {
+      id: 'dc1', monsterId: 'fury-beast', name: 'Dual', description: '', type: 'combo',
+      effects: [
+        { trigger: 'always', target: 'self', action: 'heal', value: { kind: 'fixed', amount: 3 }, transformTrigger: 'normal' },
+        { trigger: 'always', target: 'enemy_front', action: 'damage', value: { kind: 'fixed', amount: 99 }, transformTrigger: 'transformed' },
+      ],
+    };
+    const passCard = defenseCard('def-dual', 'iron-golem');
+
+    // Normal state: heal fires, attack does NOT fire
+    const { nextState: ns1 } = resolveTurn(state, dualCard, passCard);
+    expect(ns1.players[0].front.hp).toBeGreaterThan(beast.hp); // healed
+    expect(ns1.players[1].front.hp).toBe(p2Hp); // not attacked (defense blocked → but attack didn't fire anyway)
+
+    // Now set beast as transformed
+    const state2 = makeState('fury-beast', 'holy-priest', 'iron-golem', 'holy-priest');
+    state2.players[0].front.isTransformed = true;
+    const healNoop: CardState = { id: 'hn', monsterId: 'iron-golem', name: 'noop', description: '', type: 'heal', effects: [] };
+    const { nextState: ns2 } = resolveTurn(state2, dualCard, healNoop);
+    // Transformed state: attack fires (99 damage), heal does NOT fire
+    expect(ns2.players[1].front.isDead).toBe(true); // 99 damage kills
+    expect(ns2.players[0].front.hp).toBe(state2.players[0].front.hp); // not healed
+  });
 });

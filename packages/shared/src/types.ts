@@ -33,6 +33,7 @@ export type CardEffect = {
   statusValue?: number;
   statusDuration?: number;
   positionTrigger?: 'front' | 'rear'; // if set, effect only fires when monster is in this position
+  transformTrigger?: 'normal' | 'transformed'; // NEW — fires only in matching state
 };
 
 export type CardType = 'attack' | 'defense' | 'heal' | 'buff' | 'debuff' | 'counter' | 'combo';
@@ -63,6 +64,7 @@ export type MonsterMaster = {
   counterDef?: CounterDef;
   description: string;
   hpScaledPower?: boolean; // ブラッドバーサーカー: recalculate power based on HP ratio each turn
+  transformPowerBonus?: number;  // power bonus added when isTransformed === true
 };
 
 export type StatusEffect = {
@@ -95,6 +97,8 @@ export type MonsterState = {
   statusEffects: StatusEffect[];
   lastCardWasChain: boolean;
   hpScaledPower?: boolean; // ブラッドバーサーカー: recalculate power based on HP ratio
+  isTransformed?: boolean;       // true after 激昂カウンター threshold reached
+  transformPowerBonus?: number;  // power bonus added when isTransformed === true
 };
 
 export type PlayerState = {
@@ -116,7 +120,7 @@ export type GameState = {
 
 export type TurnEventType =
   | 'damage' | 'heal' | 'powerChange' | 'counterChange'
-  | 'death' | 'revive' | 'blocked' | 'counterTrigger' | 'stormwind' | 'swap';
+  | 'death' | 'revive' | 'blocked' | 'counterTrigger' | 'stormwind' | 'swap' | 'transform';
 
 export type TurnEvent = {
   type: TurnEventType;

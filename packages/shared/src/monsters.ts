@@ -406,6 +406,18 @@ export const MONSTERS: MonsterMaster[] = [
     counterDef: { name: '鏡像カウンター', type: 'threshold', threshold: 4 },
     description: 'HPを鏡に映して入れ替える魔法使い。HP操作で生存率を極限まで高める',
   },
+  {
+    id: 'fury-beast',
+    name: '激昂の獣王',
+    role: 'both',
+    hp: 15,
+    power: 4,
+    category: '変身',
+    canRevive: false,
+    transformPowerBonus: 4,
+    counterDef: { name: '激昂カウンター', type: 'threshold', threshold: 4 },
+    description: '激昂が極まると野性の本能が覚醒。変身後は比類なき破壊力を誇る',
+  },
 ];
 
 export const FRONT_MONSTERS = MONSTERS; // all monsters available as front

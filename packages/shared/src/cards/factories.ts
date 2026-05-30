@@ -100,6 +100,16 @@ export function positionEffect(
   return { ...effect, positionTrigger: trigger };
 }
 
+// fury-beast: effect that fires only in normal (pre-transform) state
+export function normalEffect(effect: CardEffect): CardEffect {
+  return { ...effect, transformTrigger: 'normal' };
+}
+
+// fury-beast: effect that fires only in transformed state
+export function transformedEffect(effect: CardEffect): CardEffect {
+  return { ...effect, transformTrigger: 'transformed' };
+}
+
 export function swapPositionsEffect(): CardEffect {
   return { trigger: 'always', target: 'self', action: 'swapPositions', value: fixedVal(0) };
 }
