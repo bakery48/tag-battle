@@ -294,7 +294,12 @@ export function resolveTurn(
       }
     }
 
+    // Find the card owner's role (front or rear) in the player state
+    const cardOwner = [p.front, p.rear].find((m) => m.id === card.monsterId) ?? actor;
+
     for (const effect of card.effects) {
+      // Skip effects that only fire in a specific position if card owner is in wrong position
+      if (effect.positionTrigger && effect.positionTrigger !== cardOwner.role) continue;
       // ifLowHp: only if actor HP < 30% of maxHp
       if (effect.trigger === 'ifLowHp' && actor.hp >= actor.maxHp * 0.3) continue;
       resolvedEffects.push({
@@ -493,6 +498,38 @@ export function resolveTurn(
         }
       }
 
+      // 双剣の舞踏士: threshold=5 → all allies +1 power, counter reset
+      if (m.id === 'twin-blade-dancer' && m.counter && m.counter.type === 'threshold') {
+        const threshold = m.counter.threshold ?? 5;
+        if (m.counter.value >= threshold) {
+          for (const ally of [p.front, p.rear]) {
+            if (!ally.isDead) {
+              ally.basePower += 1;
+              recalcPower(ally);
+              addEvent(events, 'powerChange', ally.name, ally.power, `${m.name}の舞踏効果！${ally.name}の攻撃力が${ally.power}になった`);
+            }
+          }
+          m.counter.value = 0;
+          addEvent(events, 'counterTrigger', m.name, 0, `${m.name}の舞踏カウンターが発動した`);
+        }
+      }
+
+      // 混沌の魔法使い: threshold=4 → 混沌カウンター reset, all effects +1 (represented as global powerUp)
+      if (m.id === 'chaos-mage' && m.counter && m.counter.type === 'threshold') {
+        const threshold = m.counter.threshold ?? 4;
+        if (m.counter.value >= threshold) {
+          for (const ally of [p.front, p.rear]) {
+            if (!ally.isDead) {
+              ally.basePower += 1;
+              recalcPower(ally);
+              addEvent(events, 'powerChange', ally.name, ally.power, `${m.name}の混沌爆発！${ally.name}の攻撃力が${ally.power}になった`);
+            }
+          }
+          m.counter.value = 0;
+          addEvent(events, 'counterTrigger', m.name, 0, `${m.name}の混沌カウンターが爆発した！`);
+        }
+      }
+
       // タイムメイジ: threshold=2 → swap deck[t+1] with deck[t+2]
       if (m.id === 'time-mage' && m.counter && m.counter.type === 'threshold') {
         const threshold = m.counter.threshold ?? 2;
@@ -678,6 +715,7 @@ export function resolveTurn(
 
 export function createMonsterState(
   monster: MonsterMaster,
+  assignedRole?: 'front' | 'rear',
 ): MonsterState {
   let counter: CounterInfo | undefined;
   if (monster.counterDef) {
@@ -691,7 +729,7 @@ export function createMonsterState(
   return {
     id: monster.id,
     name: monster.name,
-    role: monster.role,
+    role: monster.role === 'both' ? (assignedRole ?? 'front') : monster.role,
     hp: monster.hp,
     maxHp: monster.hp,
     power: monster.power,

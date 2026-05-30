@@ -305,10 +305,66 @@ export const MONSTERS: MonsterMaster[] = [
     counterDef: { name: '時空カウンター', type: 'threshold', threshold: 2 },
     description: '時間を操りカードの順番を入れ替える。タイミング次第でゲームを覆す',
   },
+  // ── 5 dual-role monsters (role: 'both') ──
+  {
+    id: 'luna-shapeshifter',
+    name: '変幻士ルナ',
+    role: 'both',
+    hp: 14,
+    power: 3,
+    category: '変幻',
+    canRevive: false,
+    counterDef: { name: '変幻カウンター', type: 'self' },
+    description: '前衛なら刃、後衛なら癒しの手。どちらでも変幻自在に戦う万能士',
+  },
+  {
+    id: 'shadow-clone-ninja',
+    name: '影分身の忍',
+    role: 'both',
+    hp: 12,
+    power: 4,
+    category: '忍術',
+    canRevive: false,
+    counterDef: { name: '忍術カウンター', type: 'self' },
+    description: '前でも後ろでも影分身が活躍する万能忍者',
+  },
+  {
+    id: 'twin-blade-dancer',
+    name: '双剣の舞踏士',
+    role: 'both',
+    hp: 13,
+    power: 3,
+    category: '舞踏',
+    canRevive: false,
+    counterDef: { name: '舞踏カウンター', type: 'threshold', threshold: 5 },
+    description: '攻守バランスに優れ、どちらに置いてもチームに貢献する踊り手',
+  },
+  {
+    id: 'chaos-mage',
+    name: '混沌の魔法使い',
+    role: 'both',
+    hp: 9,
+    power: 2,
+    category: '混沌',
+    canRevive: false,
+    counterDef: { name: '混沌カウンター', type: 'threshold', threshold: 4 },
+    description: '予測不能な混沌をばらまく。敵も味方も驚く行動で場を掌握する',
+  },
+  {
+    id: 'holy-blade-hero',
+    name: '聖剣の勇者',
+    role: 'both',
+    hp: 18,
+    power: 3,
+    category: '勇者',
+    canRevive: false,
+    counterDef: { name: '勇気カウンター', type: 'self' },
+    description: '突出した特徴はないが、どの位置でも安定感抜群の頼れる勇者',
+  },
 ];
 
-export const FRONT_MONSTERS = MONSTERS.filter((m) => m.role === 'front');
-export const REAR_MONSTERS = MONSTERS.filter((m) => m.role === 'rear');
+export const FRONT_MONSTERS = MONSTERS.filter((m) => m.role === 'front' || m.role === 'both');
+export const REAR_MONSTERS = MONSTERS.filter((m) => m.role === 'rear' || m.role === 'both');
 
 export function getMonsterById(id: string): MonsterMaster | undefined {
   return MONSTERS.find((m) => m.id === id);

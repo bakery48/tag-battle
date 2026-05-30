@@ -26,6 +26,11 @@ export { soulReaperCards } from './soul-reaper.js';
 export { shieldMageCards } from './shield-mage.js';
 export { reverserCards } from './reverser.js';
 export { timeMageCards } from './time-mage.js';
+export { lunaShapeshifterCards } from './luna-shapeshifter.js';
+export { shadowCloneNinjaCards } from './shadow-clone-ninja.js';
+export { twinBladeDancerCards } from './twin-blade-dancer.js';
+export { chaosMageCards } from './chaos-mage.js';
+export { holyBladeHeroCards } from './holy-blade-hero.js';
 
 import { ironGolemCards } from './iron-golem.js';
 import { berserkCards } from './berserk.js';
@@ -55,6 +60,11 @@ import { soulReaperCards } from './soul-reaper.js';
 import { shieldMageCards } from './shield-mage.js';
 import { reverserCards } from './reverser.js';
 import { timeMageCards } from './time-mage.js';
+import { lunaShapeshifterCards } from './luna-shapeshifter.js';
+import { shadowCloneNinjaCards } from './shadow-clone-ninja.js';
+import { twinBladeDancerCards } from './twin-blade-dancer.js';
+import { chaosMageCards } from './chaos-mage.js';
+import { holyBladeHeroCards } from './holy-blade-hero.js';
 import type { CardState } from '../types.js';
 
 export const ALL_CARDS: CardState[] = [
@@ -86,6 +96,11 @@ export const ALL_CARDS: CardState[] = [
   ...shieldMageCards,
   ...reverserCards,
   ...timeMageCards,
+  ...lunaShapeshifterCards,
+  ...shadowCloneNinjaCards,
+  ...twinBladeDancerCards,
+  ...chaosMageCards,
+  ...holyBladeHeroCards,
 ];
 
 export const CARDS_BY_MONSTER: Record<string, CardState[]> = {
@@ -117,6 +132,11 @@ export const CARDS_BY_MONSTER: Record<string, CardState[]> = {
   'shield-mage': shieldMageCards,
   'reverser': reverserCards,
   'time-mage': timeMageCards,
+  'luna-shapeshifter': lunaShapeshifterCards,
+  'shadow-clone-ninja': shadowCloneNinjaCards,
+  'twin-blade-dancer': twinBladeDancerCards,
+  'chaos-mage': chaosMageCards,
+  'holy-blade-hero': holyBladeHeroCards,
 };
 
 export function getCardsForMonster(monsterId: string): CardState[] {

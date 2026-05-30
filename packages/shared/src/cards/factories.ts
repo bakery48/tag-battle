@@ -92,6 +92,14 @@ export function applyStatusEffect(
   };
 }
 
+// Luna: effect that fires only when monster is in a specific position
+export function positionEffect(
+  trigger: 'front' | 'rear',
+  effect: CardEffect,
+): CardEffect {
+  return { ...effect, positionTrigger: trigger };
+}
+
 export function stormwindEffect(value: number, duration: number, target: CardEffectTarget = 'enemy_front'): CardEffect {
   return applyStatusEffect('stormwind', value, duration, target);
 }

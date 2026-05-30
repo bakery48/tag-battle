@@ -7,17 +7,17 @@ import type { GameState, PlayerState, MonsterState, CardState, CardEffect } from
 
 // ── helpers ──
 
-function makeMonsterState(id: string): MonsterState {
+function makeMonsterState(id: string, assignedRole?: 'front' | 'rear'): MonsterState {
   const master = getMonsterById(id);
   if (!master) throw new Error(`Monster not found: ${id}`);
-  return createMonsterState(master);
+  return createMonsterState(master, assignedRole);
 }
 
 function makePlayer(id: string, frontId: string, rearId: string, deck: CardState[] = []): PlayerState {
   return {
     id,
-    front: makeMonsterState(frontId),
-    rear: makeMonsterState(rearId),
+    front: makeMonsterState(frontId, 'front'),
+    rear: makeMonsterState(rearId, 'rear'),
     deck,
     currentTurn: 0,
   };
@@ -338,5 +338,48 @@ describe('battleResolver', () => {
     const { nextState } = resolveTurn(state, buffCard, passCard4);
     // The powerUp should be reversed to powerDown → power decreases by 2
     expect(nextState.players[1].front.power).toBe(Math.max(0, initialPower - 2));
+  });
+
+  it('13. Luna shapeshifter (front): positionTrigger=front effect fires, rear does not', () => {
+    // Luna placed as front → only front-trigger effects activate
+    const state = makeState('luna-shapeshifter', 'holy-priest', 'iron-golem', 'holy-priest');
+    // Luna should be front with role='front'
+    expect(state.players[0].front.role).toBe('front');
+    const p2FrontInitialHp = state.players[1].front.hp;
+    const p1FrontInitialHp = state.players[0].front.hp;
+    const lunaCard: CardState = {
+      id: 'luna-test1', monsterId: 'luna-shapeshifter', name: 'Test', description: '', type: 'combo',
+      effects: [
+        { trigger: 'always', target: 'enemy_front', action: 'damage', value: { kind: 'fixed', amount: 3 }, positionTrigger: 'front' },
+        { trigger: 'always', target: 'ally_front', action: 'heal', value: { kind: 'fixed', amount: 3 }, positionTrigger: 'rear' },
+      ],
+    };
+    const healNoop: CardState = { id: 'hn', monsterId: 'iron-golem', name: 'noop', description: '', type: 'heal', effects: [] };
+    const { nextState } = resolveTurn(state, lunaCard, healNoop);
+    // Front position: enemy took damage (front effect fired)
+    expect(nextState.players[1].front.hp).toBeLessThan(p2FrontInitialHp);
+    // Rear effect did NOT fire: ally_front hp should be unchanged (luna is front, not rear)
+    expect(nextState.players[0].front.hp).toBe(p1FrontInitialHp);
+  });
+
+  it('14. Luna shapeshifter (rear): positionTrigger=rear effect fires, front does not', () => {
+    // Luna placed as rear → only rear-trigger effects activate
+    const state = makeState('iron-golem', 'luna-shapeshifter', 'iron-golem', 'holy-priest');
+    expect(state.players[0].rear.role).toBe('rear');
+    const p1FrontInitialHp = state.players[0].front.hp;
+    const p2FrontInitialHp = state.players[1].front.hp;
+    const lunaCard: CardState = {
+      id: 'luna-test2', monsterId: 'luna-shapeshifter', name: 'Test', description: '', type: 'combo',
+      effects: [
+        { trigger: 'always', target: 'enemy_front', action: 'damage', value: { kind: 'fixed', amount: 3 }, positionTrigger: 'front' },
+        { trigger: 'always', target: 'ally_front', action: 'heal', value: { kind: 'fixed', amount: 3 }, positionTrigger: 'rear' },
+      ],
+    };
+    const healNoop: CardState = { id: 'hn2', monsterId: 'iron-golem', name: 'noop', description: '', type: 'heal', effects: [] };
+    const { nextState } = resolveTurn(state, lunaCard, healNoop);
+    // rear effect: ally_front healed +3
+    expect(nextState.players[0].front.hp).toBe(Math.min(p1FrontInitialHp + 3, state.players[0].front.maxHp));
+    // front effect did NOT fire: enemy_front hp unchanged
+    expect(nextState.players[1].front.hp).toBe(p2FrontInitialHp);
   });
 });

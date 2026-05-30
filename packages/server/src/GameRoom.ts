@@ -77,11 +77,11 @@ export class GameRoom {
 
     const frontMonster = getMonsterById(front);
     const rearMonster = getMonsterById(rear);
-    if (!frontMonster || frontMonster.role !== 'front') {
+    if (!frontMonster || (frontMonster.role !== 'front' && frontMonster.role !== 'both')) {
       this.emitToPlayer(playerIdx, EVENTS.ERROR, { message: 'Invalid front monster' });
       return;
     }
-    if (!rearMonster || rearMonster.role !== 'rear') {
+    if (!rearMonster || (rearMonster.role !== 'rear' && rearMonster.role !== 'both')) {
       this.emitToPlayer(playerIdx, EVENTS.ERROR, { message: 'Invalid rear monster' });
       return;
     }
@@ -230,8 +230,8 @@ export class GameRoom {
 
       return {
         id: this.playerSockets[idx],
-        front: createMonsterState(frontMonster),
-        rear: createMonsterState(rearMonster),
+        front: createMonsterState(frontMonster, 'front'),
+        rear: createMonsterState(rearMonster, 'rear'),
         deck: orderedDeck,
         currentTurn: 0,
       } satisfies PlayerState;

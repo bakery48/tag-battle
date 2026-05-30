@@ -29,6 +29,7 @@ export type CardEffect = {
   statusType?: string;
   statusValue?: number;
   statusDuration?: number;
+  positionTrigger?: 'front' | 'rear'; // if set, effect only fires when monster is in this position
 };
 
 export type CardType = 'attack' | 'defense' | 'heal' | 'buff' | 'debuff' | 'counter' | 'combo';
@@ -51,7 +52,7 @@ export type CounterDef = {
 export type MonsterMaster = {
   id: string;
   name: string;
-  role: 'front' | 'rear';
+  role: 'front' | 'rear' | 'both';
   hp: number;
   power: number;
   category: string;
