@@ -31,6 +31,10 @@ export { shadowCloneNinjaCards } from './shadow-clone-ninja.js';
 export { twinBladeDancerCards } from './twin-blade-dancer.js';
 export { chaosMageCards } from './chaos-mage.js';
 export { holyBladeHeroCards } from './holy-blade-hero.js';
+export { foolJesterCards } from './fool-jester.js';
+export { shadowPuppeteerCards } from './shadow-puppeteer.js';
+export { stormDancerCards } from './storm-dancer.js';
+export { mirrorSageCards } from './mirror-sage.js';
 
 import { ironGolemCards } from './iron-golem.js';
 import { berserkCards } from './berserk.js';
@@ -65,6 +69,10 @@ import { shadowCloneNinjaCards } from './shadow-clone-ninja.js';
 import { twinBladeDancerCards } from './twin-blade-dancer.js';
 import { chaosMageCards } from './chaos-mage.js';
 import { holyBladeHeroCards } from './holy-blade-hero.js';
+import { foolJesterCards } from './fool-jester.js';
+import { shadowPuppeteerCards } from './shadow-puppeteer.js';
+import { stormDancerCards } from './storm-dancer.js';
+import { mirrorSageCards } from './mirror-sage.js';
 import type { CardState } from '../types.js';
 
 export const ALL_CARDS: CardState[] = [
@@ -101,6 +109,10 @@ export const ALL_CARDS: CardState[] = [
   ...twinBladeDancerCards,
   ...chaosMageCards,
   ...holyBladeHeroCards,
+  ...foolJesterCards,
+  ...shadowPuppeteerCards,
+  ...stormDancerCards,
+  ...mirrorSageCards,
 ];
 
 export const CARDS_BY_MONSTER: Record<string, CardState[]> = {
@@ -137,6 +149,10 @@ export const CARDS_BY_MONSTER: Record<string, CardState[]> = {
   'twin-blade-dancer': twinBladeDancerCards,
   'chaos-mage': chaosMageCards,
   'holy-blade-hero': holyBladeHeroCards,
+  'fool-jester': foolJesterCards,
+  'shadow-puppeteer': shadowPuppeteerCards,
+  'storm-dancer': stormDancerCards,
+  'mirror-sage': mirrorSageCards,
 };
 
 export function getCardsForMonster(monsterId: string): CardState[] {

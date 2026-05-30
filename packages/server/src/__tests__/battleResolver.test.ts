@@ -382,4 +382,46 @@ describe('battleResolver', () => {
     // front effect did NOT fire: enemy_front hp unchanged
     expect(nextState.players[1].front.hp).toBe(p2FrontInitialHp);
   });
+
+  it('15. swapPositions: front and rear monster positions are exchanged', () => {
+    const state = makeState('fool-jester', 'holy-priest', 'iron-golem', 'holy-priest');
+    const frontId = state.players[0].front.id;
+    const rearId = state.players[0].rear.id;
+
+    const swapCard: CardState = {
+      id: 'sw1', monsterId: 'fool-jester', name: 'Swap', description: '', type: 'combo',
+      effects: [{ trigger: 'always', target: 'self', action: 'swapPositions', value: { kind: 'fixed', amount: 0 } }],
+    };
+    const passCard = defenseCard('def-sw', 'iron-golem');
+    const { nextState, log } = resolveTurn(state, swapCard, passCard);
+
+    // Positions should be exchanged
+    expect(nextState.players[0].front.id).toBe(rearId);
+    expect(nextState.players[0].rear.id).toBe(frontId);
+    expect(nextState.players[0].front.role).toBe('front');
+    expect(nextState.players[0].rear.role).toBe('rear');
+    expect(log.events.some((e) => e.type === 'swap')).toBe(true);
+  });
+
+  it('16. swapAlliesHp: front and rear HP values are exchanged', () => {
+    const state = makeState('mirror-sage', 'holy-priest', 'iron-golem', 'holy-priest');
+    const front = state.players[0].front;
+    const rear = state.players[0].rear;
+    // Set specific HP values
+    front.hp = 5;
+    rear.hp = 8;
+    const frontMaxHp = front.maxHp;
+    const rearMaxHp = rear.maxHp;
+
+    const hpSwapCard: CardState = {
+      id: 'hpsw1', monsterId: 'mirror-sage', name: 'HP Swap', description: '', type: 'combo',
+      effects: [{ trigger: 'always', target: 'self', action: 'swapAlliesHp', value: { kind: 'fixed', amount: 0 } }],
+    };
+    const passCard = defenseCard('def-hpsw', 'iron-golem');
+    const { nextState } = resolveTurn(state, hpSwapCard, passCard);
+
+    // HP exchanged (capped at maxHp)
+    expect(nextState.players[0].front.hp).toBe(Math.min(8, frontMaxHp));
+    expect(nextState.players[0].rear.hp).toBe(Math.min(5, rearMaxHp));
+  });
 });

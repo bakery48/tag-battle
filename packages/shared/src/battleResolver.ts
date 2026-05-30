@@ -242,6 +242,43 @@ function applyEffect(
         // Handled as two separate damage effects; this case is a no-op here
         break;
       }
+      case 'swapPositions': {
+        const p = state.players[re.actingPlayerIdx];
+        // Only swap if both are alive
+        if (!p.front.isDead && !p.rear.isDead) {
+          const tmp = p.front;
+          p.front = p.rear;
+          p.rear = tmp;
+          p.front.role = 'front';
+          p.rear.role = 'rear';
+          addEvent(events, 'swap', p.front.name, undefined, `${p.rear.name}と${p.front.name}の位置が入れ替わった！`);
+        }
+        break;
+      }
+      case 'swapEnemyPositions': {
+        const opp = state.players[re.actingPlayerIdx === 0 ? 1 : 0];
+        if (!opp.front.isDead && !opp.rear.isDead) {
+          const tmp = opp.front;
+          opp.front = opp.rear;
+          opp.rear = tmp;
+          opp.front.role = 'front';
+          opp.rear.role = 'rear';
+          addEvent(events, 'swap', opp.front.name, undefined, `敵の${opp.rear.name}と${opp.front.name}が強制入れ替えされた！`);
+        }
+        break;
+      }
+      case 'swapAlliesHp': {
+        const p = state.players[re.actingPlayerIdx];
+        if (!p.front.isDead && !p.rear.isDead) {
+          const frontHp = p.front.hp;
+          const rearHp = p.rear.hp;
+          p.front.hp = Math.min(rearHp, p.front.maxHp);
+          p.rear.hp = Math.min(frontHp, p.rear.maxHp);
+          addEvent(events, 'heal', p.front.name, p.front.hp, `HP交換！${p.front.name}のHPが${p.front.hp}になった`);
+          addEvent(events, 'heal', p.rear.name, p.rear.hp, `HP交換！${p.rear.name}のHPが${p.rear.hp}になった`);
+        }
+        break;
+      }
     }
   }
 }
@@ -527,6 +564,70 @@ export function resolveTurn(
           }
           m.counter.value = 0;
           addEvent(events, 'counterTrigger', m.name, 0, `${m.name}の混沌カウンターが爆発した！`);
+        }
+      }
+
+      // 道化師フール: threshold=3 → all allies basePower+2, counter reset
+      if (m.id === 'fool-jester' && m.counter && m.counter.type === 'threshold') {
+        const threshold = m.counter.threshold ?? 3;
+        if (m.counter.value >= threshold) {
+          for (const ally of [p.front, p.rear]) {
+            if (!ally.isDead) {
+              ally.basePower += 2;
+              recalcPower(ally);
+              addEvent(events, 'powerChange', ally.name, ally.power, `${m.name}の道化効果！${ally.name}の攻撃力が${ally.power}になった`);
+            }
+          }
+          m.counter.value = 0;
+          addEvent(events, 'counterTrigger', m.name, 0, `${m.name}の道化カウンターが発動した！`);
+        }
+      }
+
+      // 影法師の人形師: threshold=3 → swap enemy front/rear
+      if (m.id === 'shadow-puppeteer' && m.counter && m.counter.type === 'threshold') {
+        const threshold = m.counter.threshold ?? 3;
+        if (m.counter.value >= threshold) {
+          const oppIdx = (pi === 0 ? 1 : 0) as 0 | 1;
+          const opp = s.players[oppIdx];
+          if (!opp.front.isDead && !opp.rear.isDead) {
+            const tmp = opp.front;
+            opp.front = opp.rear;
+            opp.rear = tmp;
+            opp.front.role = 'front';
+            opp.rear.role = 'rear';
+            addEvent(events, 'swap', opp.front.name, undefined, `${m.name}の閾値発動！敵の前後衛が強制入れ替え！`);
+          }
+          m.counter.value = 0;
+          addEvent(events, 'counterTrigger', m.name, 0, `${m.name}の操糸カウンターが発動した！`);
+        }
+      }
+
+      // ミラーセージ: threshold=4 → swap enemy front/rear AND swap own HP
+      if (m.id === 'mirror-sage' && m.counter && m.counter.type === 'threshold') {
+        const threshold = m.counter.threshold ?? 4;
+        if (m.counter.value >= threshold) {
+          const oppIdx = (pi === 0 ? 1 : 0) as 0 | 1;
+          const opp = s.players[oppIdx];
+          // Swap enemy
+          if (!opp.front.isDead && !opp.rear.isDead) {
+            const tmp = opp.front;
+            opp.front = opp.rear;
+            opp.rear = tmp;
+            opp.front.role = 'front';
+            opp.rear.role = 'rear';
+            addEvent(events, 'swap', opp.front.name, undefined, `${m.name}の閾値発動！敵の前後衛が入れ替え！`);
+          }
+          // Swap own HP
+          if (!p.front.isDead && !p.rear.isDead) {
+            const frontHp = p.front.hp;
+            const rearHp = p.rear.hp;
+            p.front.hp = Math.min(rearHp, p.front.maxHp);
+            p.rear.hp = Math.min(frontHp, p.rear.maxHp);
+            addEvent(events, 'heal', p.front.name, p.front.hp, `HP鏡交換！${p.front.name}のHPが${p.front.hp}になった`);
+            addEvent(events, 'heal', p.rear.name, p.rear.hp, `HP鏡交換！${p.rear.name}のHPが${p.rear.hp}になった`);
+          }
+          m.counter.value = 0;
+          addEvent(events, 'counterTrigger', m.name, 0, `${m.name}の鏡像カウンターが発動した！`);
         }
       }
 

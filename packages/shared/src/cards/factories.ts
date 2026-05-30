@@ -100,6 +100,18 @@ export function positionEffect(
   return { ...effect, positionTrigger: trigger };
 }
 
+export function swapPositionsEffect(): CardEffect {
+  return { trigger: 'always', target: 'self', action: 'swapPositions', value: fixedVal(0) };
+}
+
+export function swapEnemyPositionsEffect(): CardEffect {
+  return { trigger: 'always', target: 'self', action: 'swapEnemyPositions', value: fixedVal(0) };
+}
+
+export function swapAlliesHpEffect(): CardEffect {
+  return { trigger: 'always', target: 'self', action: 'swapAlliesHp', value: fixedVal(0) };
+}
+
 export function stormwindEffect(value: number, duration: number, target: CardEffectTarget = 'enemy_front'): CardEffect {
   return applyStatusEffect('stormwind', value, duration, target);
 }

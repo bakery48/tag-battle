@@ -14,7 +14,10 @@ export type CardEffectAction =
   | 'damage' | 'heal' | 'powerUp' | 'powerDown'
   | 'counterAdd' | 'counterReduce' | 'revive' | 'cover'
   | 'multiHit'    // ダブルエッジ: deal damage twice (ceil(power/2) each)
-  | 'applyStatus'; // Apply a StatusEffect (armor, shield, reverse, etc.)
+  | 'applyStatus' // Apply a StatusEffect (armor, shield, reverse, etc.)
+  | 'swapPositions'      // swap own front/rear
+  | 'swapEnemyPositions' // force opponent's front/rear swap
+  | 'swapAlliesHp';      // swap own front/rear current HP values
 
 export type CardEffect = {
   trigger: CardEffectTrigger;
@@ -113,7 +116,7 @@ export type GameState = {
 
 export type TurnEventType =
   | 'damage' | 'heal' | 'powerChange' | 'counterChange'
-  | 'death' | 'revive' | 'blocked' | 'counterTrigger' | 'stormwind';
+  | 'death' | 'revive' | 'blocked' | 'counterTrigger' | 'stormwind' | 'swap';
 
 export type TurnEvent = {
   type: TurnEventType;
