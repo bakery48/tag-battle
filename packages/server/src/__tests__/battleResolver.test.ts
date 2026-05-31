@@ -123,11 +123,9 @@ describe('battleResolver', () => {
     expect(nextState.players[1].front.hp).toBe(Math.min(p2Hp + 3, state.players[1].front.maxHp));
   });
 
-  it('4. Berserk: 激昂 counter increments on combo attack, power recalculated', () => {
+  it('4. Berserk: combo attack raises own power directly', () => {
     const state = makeState('berserk', 'holy-priest', 'iron-golem', 'holy-priest');
-    const berserkMonster = state.players[0].front;
-    expect(berserkMonster.counter?.value).toBe(0);
-    const initialPower = berserkMonster.power;
+    const initialPower = state.players[0].front.power;
 
     const comboCard: CardState = {
       id: 'combo1',
@@ -137,17 +135,14 @@ describe('battleResolver', () => {
       type: 'combo',
       effects: [
         { trigger: 'always', target: 'enemy_front', action: 'damage', value: { kind: 'power' } },
-        { trigger: 'always', target: 'self', action: 'counterAdd', value: { kind: 'fixed', amount: 1 }, counterName: '激昂カウンター' },
+        { trigger: 'always', target: 'self', action: 'powerUp', value: { kind: 'fixed', amount: 1 } },
       ],
     };
     const defC = defenseCard('def1', 'iron-golem');
 
     const { nextState } = resolveTurn(state, comboCard, defC);
 
-    // Counter should be 1 (incremented by card effect since p2 blocked attack)
-    // Note: the counterAdd is NOT nullified (only damage action is nullified on block)
-    expect(nextState.players[0].front.counter?.value).toBe(1);
-    // Power should be basePower + counter = 5 + 1 = 6
+    expect(nextState.players[0].front.counter).toBeUndefined();
     expect(nextState.players[0].front.power).toBe(initialPower + 1);
   });
 
@@ -294,33 +289,21 @@ describe('battleResolver', () => {
     expect(frontHasArmor).toBe(true);
   });
 
-  it('11. SoulReaper: 魂カウンター increases by 3 when an ally dies', () => {
+  it('11. SoulReaper: has no counter, ally death does not create counter', () => {
     const state = makeState('iron-golem', 'soul-reaper', 'iron-golem', 'holy-priest');
     const p1Front = state.players[0].front;
-    const soulReaper = state.players[0].rear;
-    // Kill p1 front this turn with massive damage
     p1Front.hp = 1;
     const killAttack: CardState = {
       id: 'ka1', monsterId: 'iron-golem', name: 'Kill', description: '', type: 'attack',
       effects: [{ trigger: 'always', target: 'enemy_front', action: 'damage', value: { kind: 'fixed', amount: 99 } }],
     };
-    // P1 plays something that also kills itself via selfHpCost
-    const suicideCard: CardState = {
-      id: 'sc1', monsterId: 'iron-golem', name: 'Suicide', description: '', type: 'attack',
-      effects: [{ trigger: 'always', target: 'self', action: 'damage', value: { kind: 'fixed', amount: 99 }, selfHpCost: 99 }],
-    };
-    // Use a different approach: set hp to 0 manually via a card
     const healNoop: CardState = {
       id: 'hn1', monsterId: 'iron-golem', name: 'NoOp', description: '', type: 'heal',
       effects: [],
     };
-    p1Front.hp = 1;
-    // P2 attacks p1 front with 99 damage to kill it
     const { nextState } = resolveTurn(state, healNoop, killAttack);
-    // p1 front should be dead
     expect(nextState.players[0].front.isDead).toBe(true);
-    // SoulReaper counter should be 3
-    expect(nextState.players[0].rear.counter?.value).toBe(3);
+    expect(nextState.players[0].rear.counter).toBeUndefined();
   });
 
   it('12. Reverser: powerUp to reversed target becomes powerDown', () => {

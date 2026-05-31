@@ -20,7 +20,6 @@ export const MONSTERS: MonsterMaster[] = [
     power: 5,
     category: '攻撃',
     canRevive: false,
-    counterDef: { name: '激昂カウンター', type: 'self' },
     description: '戦いの中で力を増す狂戦士。',
   },
   {
@@ -269,7 +268,6 @@ export const MONSTERS: MonsterMaster[] = [
     power: 3,
     category: '特殊',
     canRevive: false,
-    counterDef: { name: '魂カウンター', type: 'self' },
     description: '仲間の死を力に変える。フェニックスとの組み合わせで繰り返し強化可能',
   },
   {
