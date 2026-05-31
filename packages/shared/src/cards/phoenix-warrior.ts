@@ -21,15 +21,15 @@ export const phoenixWarriorCards: CardState[] = [
   makeCard(MID, '不死の力', '自前衛の攻撃力を1上げる。', 'buff', [powerUpEffect(1, 'ally_front')]),
   makeCard(MID, '炎の加護', '自前衛の攻撃力を1上げる。', 'buff', [powerUpEffect(1, 'ally_front')]),
   // Combo: attack + 炎鳥 counter x3
-  makeCard(MID, '炎鳥の一撃', '攻撃し、炎鳥カウンター+1。', 'combo', [
+  makeCard(MID, '炎鳥の一撃', '攻撃し、炎鳥カウンター+1。(復活時のHP回復量が増える)', 'combo', [
     attackEffect(powerVal()),
     counterAddEffect(COUNTER, 1, 'self'),
   ]),
-  makeCard(MID, '不死鳥解放', '攻撃し、炎鳥カウンター+1。', 'combo', [
+  makeCard(MID, '不死鳥解放', '攻撃し、炎鳥カウンター+1。(復活時のHP回復量が増える)', 'combo', [
     attackEffect(powerVal()),
     counterAddEffect(COUNTER, 1, 'self'),
   ]),
-  makeCard(MID, '炎の輝き', '攻撃し、炎鳥カウンター+1。', 'combo', [
+  makeCard(MID, '炎の輝き', '攻撃し、炎鳥カウンター+1。(復活時のHP回復量が増える)', 'combo', [
     attackEffect(powerVal()),
     counterAddEffect(COUNTER, 1, 'self'),
   ]),

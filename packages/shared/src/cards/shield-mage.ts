@@ -9,19 +9,19 @@ const COUNTER = '魔盾カウンター';
 
 export const shieldMageCards: CardState[] = [
   // applyStatus: armor to ally_front + 魔盾カウンター +1 (x4)
-  makeCard(MID, '魔法の盾', '自前衛にアーマー(2,2ターン)を付与。魔盾カウンター+1。', 'combo', [
+  makeCard(MID, '魔法の盾', '自前衛にアーマー(2+カウンター値,2ターン)を付与。魔盾カウンター+1。', 'combo', [
     applyStatusEffect('armor', 2, 2, 'ally_front'),
     counterAddEffect(COUNTER, 1, 'self'),
   ]),
-  makeCard(MID, '符文の護り', '自前衛にアーマー(2,2ターン)を付与。魔盾カウンター+1。', 'combo', [
+  makeCard(MID, '符文の護り', '自前衛にアーマー(2+カウンター値,2ターン)を付与。魔盾カウンター+1。', 'combo', [
     applyStatusEffect('armor', 2, 2, 'ally_front'),
     counterAddEffect(COUNTER, 1, 'self'),
   ]),
-  makeCard(MID, '鉄壁の守護', '自前衛にアーマー(2,2ターン)を付与。魔盾カウンター+1。', 'combo', [
+  makeCard(MID, '鉄壁の守護', '自前衛にアーマー(2+カウンター値,2ターン)を付与。魔盾カウンター+1。', 'combo', [
     applyStatusEffect('armor', 2, 2, 'ally_front'),
     counterAddEffect(COUNTER, 1, 'self'),
   ]),
-  makeCard(MID, '障壁の詠唱', '自前衛にアーマー(2,2ターン)を付与。魔盾カウンター+1。', 'combo', [
+  makeCard(MID, '障壁の詠唱', '自前衛にアーマー(2+カウンター値,2ターン)を付与。魔盾カウンター+1。', 'combo', [
     applyStatusEffect('armor', 2, 2, 'ally_front'),
     counterAddEffect(COUNTER, 1, 'self'),
   ]),

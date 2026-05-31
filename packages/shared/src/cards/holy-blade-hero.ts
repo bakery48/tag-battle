@@ -9,19 +9,19 @@ const COUNTER = '勇気カウンター';
 
 export const holyBladeHeroCards: CardState[] = [
   // Combo x4: attack + 勇気counter+1
-  makeCard(MID, '聖剣の一撃', '敵前衛にパワーダメージ。勇気カウンター+1。', 'combo', [
+  makeCard(MID, '聖剣の一撃', '攻撃し、勇気カウンター+1。(攻撃時に味方前衛をカウンター値分回復)', 'combo', [
     attackEffect(powerVal()),
     counterAddEffect(COUNTER, 1, 'self'),
   ]),
-  makeCard(MID, '勇者の剣閃', '敵前衛にパワーダメージ。勇気カウンター+1。', 'combo', [
+  makeCard(MID, '勇者の剣閃', '攻撃し、勇気カウンター+1。(攻撃時に味方前衛をカウンター値分回復)', 'combo', [
     attackEffect(powerVal()),
     counterAddEffect(COUNTER, 1, 'self'),
   ]),
-  makeCard(MID, '聖なる斬撃', '敵前衛にパワーダメージ。勇気カウンター+1。', 'combo', [
+  makeCard(MID, '聖なる斬撃', '攻撃し、勇気カウンター+1。(攻撃時に味方前衛をカウンター値分回復)', 'combo', [
     attackEffect(powerVal()),
     counterAddEffect(COUNTER, 1, 'self'),
   ]),
-  makeCard(MID, '勇気の刃', '敵前衛にパワーダメージ。勇気カウンター+1。', 'combo', [
+  makeCard(MID, '勇気の刃', '攻撃し、勇気カウンター+1。(攻撃時に味方前衛をカウンター値分回復)', 'combo', [
     attackEffect(powerVal()),
     counterAddEffect(COUNTER, 1, 'self'),
   ]),

@@ -9,7 +9,7 @@ const COUNTER = '聖光カウンター';
 
 export const holyLightHealerCards: CardState[] = [
   // Heal + counter x4 (main mechanic: healing builds counter, counter scales power via recalcPower)
-  makeCard(MID, '聖光の回復', '味方前衛のHP+[3+カウンター]回復。聖光カウンター+1。', 'combo', [
+  makeCard(MID, '聖光の回復', '味方前衛のHPを回復(聖光カウンター分ボーナス)。聖光カウンター+1。', 'combo', [
     healEffect(3, 'ally_front'), counterAddEffect(COUNTER, 1, 'self'),
   ]),
   makeCard(MID, '光の祝福', '味方前衛のHPを3回復。聖光カウンター+1。', 'combo', [

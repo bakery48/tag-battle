@@ -17,9 +17,9 @@ function selfSacrificeAttack(): CardEffect[] {
 
 export const deathKnightCards: CardState[] = [
   // HP-cost combo x3
-  makeCard(MID, '業炎斬', 'HP-2を消費し、強力に攻撃。業炎カウンター+1。', 'combo', selfSacrificeAttack()),
-  makeCard(MID, '死の業炎', 'HP-2を消費し、強力に攻撃。業炎カウンター+1。', 'combo', selfSacrificeAttack()),
-  makeCard(MID, '業炎解放', 'HP-2を消費し、強力に攻撃。業炎カウンター+1。', 'combo', selfSacrificeAttack()),
+  makeCard(MID, '業炎斬', 'HP-2消費し強力に攻撃。業炎カウンター+1。(毎ターン敵前衛に業炎値分ダメージ)', 'combo', selfSacrificeAttack()),
+  makeCard(MID, '死の業炎', 'HP-2消費し強力に攻撃。業炎カウンター+1。(毎ターン敵前衛に業炎値分ダメージ)', 'combo', selfSacrificeAttack()),
+  makeCard(MID, '業炎解放', 'HP-2消費し強力に攻撃。業炎カウンター+1。(毎ターン敵前衛に業炎値分ダメージ)', 'combo', selfSacrificeAttack()),
   // Normal attack x3
   makeCard(MID, '死の剣', '敵前衛にダメージを与える。', 'attack', [attackEffect(powerVal())]),
   makeCard(MID, '冥府の刃', '敵前衛にダメージを与える。', 'attack', [attackEffect(powerVal())]),

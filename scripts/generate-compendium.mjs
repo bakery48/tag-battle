@@ -314,9 +314,16 @@ function buildMonsterCards(id) {
 }
 
 function fmtCounterType(cd) {
-  if (cd.type === 'self') return `カウンターが溜まるほどパワーが上昇する`;
-  if (cd.type === 'apply') return `カウンターが溜まると付与する状態異常が強化される`;
+  if (cd.type === 'self') return 'カウンターが溜まるほどパワーが上昇する';
+  if (cd.type === 'apply') return 'カウンターが溜まると付与する状態異常が強化される';
   if (cd.type === 'threshold') return `カウンターが${cd.threshold}に達すると特殊効果が発動する`;
+  if (cd.type === 'lifesteal') return '攻撃時にカウンター値分のHPを吸収する';
+  if (cd.type === 'burn') return 'ターン終了時に敵前衛へカウンター値分の業炎ダメージを与える';
+  if (cd.type === 'reviveBonus') return '復活・蘇生時のHP回復量がカウンター値分増加する';
+  if (cd.type === 'stack') return 'カウンター参照スキルのダメージ倍率になる(パワーへの影響なし)';
+  if (cd.type === 'healBonus') return '回復スキル使用時にカウンター値分の追加回復を行う';
+  if (cd.type === 'healOnAttack') return '攻撃時に味方前衛をカウンター値分回復する';
+  if (cd.type === 'armorBonus') return 'アーマー付与時にカウンター値分のアーマーを追加する';
   return cd.type;
 }
 
