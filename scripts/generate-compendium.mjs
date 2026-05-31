@@ -250,7 +250,7 @@ function fmtAction(a, v) {
     counterAdd: 'カウンター+',
     counterReduce: 'カウンター-',
     revive: '蘇生',
-    cover: 'カバー',
+    defense: '防御',
     multiHit: `連続攻撃${val ? '(' + val + ')' : ''}`,
     applyStatus: 'ステータス付与',
     swapPositions: '自陣前後交換',

@@ -41,8 +41,8 @@ function resolveTarget(
     case 'enemy_front':
       return opp.front.isDead ? opp.rear : opp.front;
     case 'enemy_rear': {
-      // Check cover: if opp.front has 'cover' status and is alive → intercept
-      const hasCover = !opp.front.isDead && opp.front.statusEffects.some((s) => s.type === 'cover');
+      // Check defense: if opp.front has 'defense' status and is alive → intercept
+      const hasCover = !opp.front.isDead && opp.front.statusEffects.some((s) => s.type === 'defense');
       return hasCover ? opp.front : opp.rear;
     }
     case 'enemy_all': return [opp.front, opp.rear];
@@ -227,11 +227,11 @@ function applyEffect(
         // Handled in Phase 5c
         break;
       }
-      case 'cover': {
+      case 'defense': {
         if (val === 0) break; // plain defense (val=0 means it's a defense card, handled by phase 2)
-        // Apply cover status for 1 turn
-        applyStatusToMonster(tgt, 'cover', 1, val, 'card');
-        addEvent(events, 'counterChange', tgt.name, 1, `${tgt.name}がカバー状態になった`);
+        // Apply defense status for 1 turn
+        applyStatusToMonster(tgt, 'defense', 1, val, 'card');
+        addEvent(events, 'counterChange', tgt.name, 1, `${tgt.name}が防御状態になった`);
         break;
       }
       case 'applyStatus': {

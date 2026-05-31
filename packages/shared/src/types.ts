@@ -12,7 +12,7 @@ export type CardEffectTarget =
 
 export type CardEffectAction =
   | 'damage' | 'heal' | 'powerUp' | 'powerDown'
-  | 'counterAdd' | 'counterReduce' | 'revive' | 'cover'
+  | 'counterAdd' | 'counterReduce' | 'revive' | 'defense'
   | 'multiHit'    // ダブルエッジ: deal damage twice (ceil(power/2) each)
   | 'applyStatus' // Apply a StatusEffect (armor, shield, reverse, etc.)
   | 'swapPositions'      // swap own front/rear

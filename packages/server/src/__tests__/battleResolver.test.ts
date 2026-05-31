@@ -48,7 +48,7 @@ function defenseCard(id: string, monsterId: string): CardState {
     name: 'Test Defense',
     description: '',
     type: 'defense',
-    effects: [{ trigger: 'always', target: 'self', action: 'cover', value: { kind: 'fixed', amount: 0 } }],
+    effects: [{ trigger: 'always', target: 'self', action: 'defense', value: { kind: 'fixed', amount: 0 } }],
   };
 }
 
@@ -280,7 +280,7 @@ describe('battleResolver', () => {
     const comboCard: CardState = {
       id: 'rg1', monsterId: 'rune-guardian', name: 'Rune Defense', description: '', type: 'combo',
       effects: [
-        { trigger: 'always', target: 'self', action: 'cover', value: { kind: 'fixed', amount: 0 } },
+        { trigger: 'always', target: 'self', action: 'defense', value: { kind: 'fixed', amount: 0 } },
         { trigger: 'always', target: 'self', action: 'counterAdd', value: { kind: 'fixed', amount: 1 }, counterName: '魔紋カウンター' },
       ],
     };

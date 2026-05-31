@@ -47,9 +47,8 @@ export function attackRearEffect(value: EffectValue = powerVal()): CardEffect {
   return { trigger: 'always', target: 'enemy_rear', action: 'damage', value };
 }
 
-// Defense card: represented as cover action on self (battle resolver treats 'defense' type cards as block)
 export function defenseEffect(): CardEffect {
-  return { trigger: 'always', target: 'self', action: 'cover', value: fixedVal(0) };
+  return { trigger: 'always', target: 'self', action: 'defense', value: fixedVal(0) };
 }
 
 export function healEffect(amount: number, target: 'ally_front' | 'ally_rear' | 'self' = 'ally_front'): CardEffect {

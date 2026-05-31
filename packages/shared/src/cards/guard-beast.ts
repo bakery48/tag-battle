@@ -6,11 +6,10 @@ import {
 
 const MID = 'guard-beast';
 
-// Cover effect: apply 'cover' status to self for 1 turn
-const coverSelfEffect: CardEffect = {
+const defenseSelfEffect: CardEffect = {
   trigger: 'always',
   target: 'self',
-  action: 'cover',
+  action: 'defense',
   value: fixedVal(1),
 };
 
@@ -31,5 +30,5 @@ export const guardBeastCards: CardState[] = [
   makeCard(MID, '守護強化', '自前衛の攻撃力を1上げる。', 'buff', [powerUpEffect(1, 'ally_front')]),
   makeCard(MID, '獣の加護', '自前衛の攻撃力を1上げる。', 'buff', [powerUpEffect(1, 'ally_front')]),
   // Cover x1
-  makeCard(MID, '囮作戦', '自分にカバー状態を付与し、後衛への攻撃を引き受ける。', 'buff', [coverSelfEffect]),
+  makeCard(MID, '囮作戦', '自分に防御状態を付与し、後衛への攻撃を引き受ける。', 'buff', [defenseSelfEffect]),
 ];
