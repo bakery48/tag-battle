@@ -1,0 +1,3877 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tag Battle — モンスター図鑑</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a14;
+    --surface: #12121f;
+    --surface2: #1a1a2e;
+    --border: #2a2a4a;
+    --gold: #ffd700;
+    --text: #e0e0f0;
+    --muted: #888;
+    --front-color: #3498db;
+    --rear-color: #2ecc71;
+    --both-color: #9b59b6;
+    --attack: #e74c3c;
+    --defense: #3498db;
+    --skill: #9b59b6;
+    --chain: #f39c12;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+    min-height: 100vh;
+    padding-bottom: 60px;
+  }
+
+  header {
+    background: linear-gradient(135deg, #0a0a14 0%, #1a1a2e 100%);
+    border-bottom: 2px solid var(--gold);
+    padding: 24px 32px;
+    text-align: center;
+  }
+  header h1 {
+    font-size: 2rem;
+    color: var(--gold);
+    letter-spacing: 0.1em;
+    text-shadow: 0 0 20px rgba(255,215,0,0.4);
+  }
+  header p { color: var(--muted); margin-top: 6px; font-size: 0.9rem; }
+
+  .controls {
+    display: flex;
+    gap: 12px;
+    padding: 20px 32px;
+    flex-wrap: wrap;
+    align-items: center;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .search-box {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-box:focus { border-color: var(--gold); }
+
+  .filter-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .filter-btn {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+  .filter-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .filter-btn.active { background: var(--gold); color: #000; border-color: var(--gold); font-weight: bold; }
+
+  .monster-count { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    padding: 24px 32px;
+  }
+
+  .monster-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .monster-card:hover { border-color: var(--gold); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(255,215,0,0.15); }
+  .monster-card.front { border-left: 3px solid var(--front-color); }
+  .monster-card.rear { border-left: 3px solid var(--rear-color); }
+  .monster-card.both { border-left: 3px solid var(--both-color); }
+
+  .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
+  .monster-name { font-size: 0.95rem; font-weight: bold; color: var(--text); line-height: 1.3; }
+  .card-stats { display: flex; gap: 10px; align-items: center; font-size: 0.82rem; color: var(--muted); }
+  .card-stats strong { color: var(--text); }
+  .category-tag { background: var(--surface); padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; }
+
+  .badge { padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: bold; white-space: nowrap; }
+  .badge-front { background: rgba(52,152,219,0.2); color: var(--front-color); border: 1px solid var(--front-color); }
+  .badge-rear { background: rgba(46,204,113,0.2); color: var(--rear-color); border: 1px solid var(--rear-color); }
+  .badge-both { background: rgba(155,89,182,0.2); color: var(--both-color); border: 1px solid var(--both-color); }
+
+  .monster-card.hidden { display: none; }
+
+  /* Modal */
+  .modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 1000;
+    overflow-y: auto;
+    padding: 20px;
+  }
+  .modal.open { display: flex; align-items: flex-start; justify-content: center; }
+
+  .modal-content {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    max-width: 800px;
+    width: 100%;
+    position: relative;
+    margin: auto;
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 14px; right: 14px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 50%;
+    width: 32px; height: 32px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal-close:hover { border-color: var(--gold); color: var(--gold); }
+
+  .modal-content h2 {
+    font-size: 1.5rem;
+    color: var(--gold);
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .modal-content h3 {
+    font-size: 1rem;
+    color: var(--gold);
+    margin: 20px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+  .stat { background: var(--surface); padding: 6px 14px; border-radius: 6px; font-size: 0.9rem; }
+  .stat-label { color: var(--muted); margin-right: 6px; font-size: 0.8rem; }
+  .stat.extra { background: rgba(155,89,182,0.15); border: 1px solid rgba(155,89,182,0.3); font-size: 0.8rem; }
+
+  .monster-desc { color: var(--muted); font-size: 0.9rem; line-height: 1.6; margin-bottom: 4px; }
+
+  .card-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .card-table th, .card-table td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .card-table th { color: var(--muted); font-weight: normal; background: var(--surface); }
+  .card-table tr:hover { background: rgba(255,255,255,0.03); }
+  .card-table td:first-child { font-weight: bold; }
+
+  .type-tag {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: #fff;
+    white-space: nowrap;
+  }
+
+  .tactics-text { color: var(--text); font-size: 0.9rem; line-height: 1.7; }
+
+  .synergy-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .syn-tag {
+    background: rgba(255,215,0,0.1);
+    border: 1px solid rgba(255,215,0,0.3);
+    color: var(--gold);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+  }
+
+  @media (max-width: 600px) {
+    header { padding: 16px; }
+    header h1 { font-size: 1.4rem; }
+    .controls { padding: 12px 16px; }
+    .grid { padding: 16px; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+    .modal-content { padding: 20px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚔ Tag Battle — モンスター図鑑</h1>
+  <p>全44体のモンスターを収録。カードをクリックして詳細を見る。</p>
+</header>
+
+<div class="controls">
+  <input class="search-box" type="search" placeholder="名前・カテゴリで検索…" oninput="filterMonsters()" id="searchInput" aria-label="検索">
+  <div class="filter-group">
+    <button class="filter-btn active" onclick="setFilter('all', this)">全て</button>
+    <button class="filter-btn" onclick="setFilter('both', this)">両用</button>
+    <button class="filter-btn" onclick="setFilter('front', this)">前衛向</button>
+    <button class="filter-btn" onclick="setFilter('rear', this)">後衛向</button>
+  </div>
+  <span class="monster-count" id="countDisplay">44体表示中</span>
+</div>
+
+<div class="grid" id="monsterGrid">
+
+  <div class="monster-card front" data-id="iron-golem" data-role="front" data-name="アイアンゴーレム" data-category="防御"
+    onclick="openModal('iron-golem')" tabindex="0" role="button" aria-label="アイアンゴーレムの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">アイアンゴーレム</span>
+      <span class="badge badge-front">前衛向</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>28</strong></span>
+      <span>P <strong>3</strong></span>
+      <span class="category-tag">防御</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="berserk" data-role="both" data-name="ベルセルク" data-category="攻撃"
+    onclick="openModal('berserk')" tabindex="0" role="button" aria-label="ベルセルクの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">ベルセルク</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>15</strong></span>
+      <span>P <strong>5</strong></span>
+      <span class="category-tag">攻撃</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="vampire-lord" data-role="both" data-name="ヴァンパイアロード" data-category="攻撃"
+    onclick="openModal('vampire-lord')" tabindex="0" role="button" aria-label="ヴァンパイアロードの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">ヴァンパイアロード</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>18</strong></span>
+      <span>P <strong>4</strong></span>
+      <span class="category-tag">攻撃</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="mirror-knight" data-role="both" data-name="ミラーナイト" data-category="防御"
+    onclick="openModal('mirror-knight')" tabindex="0" role="button" aria-label="ミラーナイトの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">ミラーナイト</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>20</strong></span>
+      <span>P <strong>4</strong></span>
+      <span class="category-tag">防御</span>
+    </div>
+  </div>
+
+  <div class="monster-card front" data-id="death-knight" data-role="front" data-name="デスナイト" data-category="特殊"
+    onclick="openModal('death-knight')" tabindex="0" role="button" aria-label="デスナイトの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">デスナイト</span>
+      <span class="badge badge-front">前衛向</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>16</strong></span>
+      <span>P <strong>6</strong></span>
+      <span class="category-tag">特殊</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="skeleton-lancer" data-role="both" data-name="スケルトンランサー" data-category="攻撃"
+    onclick="openModal('skeleton-lancer')" tabindex="0" role="button" aria-label="スケルトンランサーの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">スケルトンランサー</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>19</strong></span>
+      <span>P <strong>4</strong></span>
+      <span class="category-tag">攻撃</span>
+    </div>
+  </div>
+
+  <div class="monster-card front" data-id="phoenix-warrior" data-role="front" data-name="フェニックスウォリアー" data-category="特殊"
+    onclick="openModal('phoenix-warrior')" tabindex="0" role="button" aria-label="フェニックスウォリアーの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">フェニックスウォリアー</span>
+      <span class="badge badge-front">前衛向</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>16</strong></span>
+      <span>P <strong>4</strong></span>
+      <span class="category-tag">特殊</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="storm-warlock" data-role="both" data-name="ストームウォーロック" data-category="特殊"
+    onclick="openModal('storm-warlock')" tabindex="0" role="button" aria-label="ストームウォーロックの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">ストームウォーロック</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>17</strong></span>
+      <span>P <strong>5</strong></span>
+      <span class="category-tag">特殊</span>
+    </div>
+  </div>
+
+  <div class="monster-card front" data-id="guard-beast" data-role="front" data-name="ガードビースト" data-category="防御"
+    onclick="openModal('guard-beast')" tabindex="0" role="button" aria-label="ガードビーストの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">ガードビースト</span>
+      <span class="badge badge-front">前衛向</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>25</strong></span>
+      <span>P <strong>3</strong></span>
+      <span class="category-tag">防御</span>
+    </div>
+  </div>
+
+  <div class="monster-card front" data-id="chain-soldier" data-role="front" data-name="チェインソルジャー" data-category="特殊"
+    onclick="openModal('chain-soldier')" tabindex="0" role="button" aria-label="チェインソルジャーの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">チェインソルジャー</span>
+      <span class="badge badge-front">前衛向</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>18</strong></span>
+      <span>P <strong>3</strong></span>
+      <span class="category-tag">特殊</span>
+    </div>
+  </div>
+
+  <div class="monster-card rear" data-id="holy-priest" data-role="rear" data-name="ホーリープリースト" data-category="回復"
+    onclick="openModal('holy-priest')" tabindex="0" role="button" aria-label="ホーリープリーストの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">ホーリープリースト</span>
+      <span class="badge badge-rear">後衛向</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>12</strong></span>
+      <span>P <strong>1</strong></span>
+      <span class="category-tag">回復</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="shadow-witch" data-role="both" data-name="シャドウウィッチ" data-category="攻撃"
+    onclick="openModal('shadow-witch')" tabindex="0" role="button" aria-label="シャドウウィッチの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">シャドウウィッチ</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>9</strong></span>
+      <span>P <strong>5</strong></span>
+      <span class="category-tag">攻撃</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="curse-shaman" data-role="both" data-name="カースシャーマン" data-category="妨害"
+    onclick="openModal('curse-shaman')" tabindex="0" role="button" aria-label="カースシャーマンの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">カースシャーマン</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>10</strong></span>
+      <span>P <strong>2</strong></span>
+      <span class="category-tag">妨害</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="war-bird" data-role="both" data-name="ウォーバード" data-category="補助"
+    onclick="openModal('war-bird')" tabindex="0" role="button" aria-label="ウォーバードの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">ウォーバード</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>12</strong></span>
+      <span>P <strong>2</strong></span>
+      <span class="category-tag">補助</span>
+    </div>
+  </div>
+
+  <div class="monster-card rear" data-id="necromancer" data-role="rear" data-name="ネクロマンサー" data-category="補助"
+    onclick="openModal('necromancer')" tabindex="0" role="button" aria-label="ネクロマンサーの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">ネクロマンサー</span>
+      <span class="badge badge-rear">後衛向</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>11</strong></span>
+      <span>P <strong>2</strong></span>
+      <span class="category-tag">補助</span>
+    </div>
+  </div>
+
+  <div class="monster-card rear" data-id="poison-doctor" data-role="rear" data-name="ポイズンドクター" data-category="妨害"
+    onclick="openModal('poison-doctor')" tabindex="0" role="button" aria-label="ポイズンドクターの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">ポイズンドクター</span>
+      <span class="badge badge-rear">後衛向</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>10</strong></span>
+      <span>P <strong>2</strong></span>
+      <span class="category-tag">妨害</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="echo-mage" data-role="both" data-name="エコーメイジ" data-category="特殊"
+    onclick="openModal('echo-mage')" tabindex="0" role="button" aria-label="エコーメイジの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">エコーメイジ</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>8</strong></span>
+      <span>P <strong>3</strong></span>
+      <span class="category-tag">特殊</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="storm-shaman" data-role="both" data-name="ストームシャーマン" data-category="攻撃"
+    onclick="openModal('storm-shaman')" tabindex="0" role="button" aria-label="ストームシャーマンの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">ストームシャーマン</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>9</strong></span>
+      <span>P <strong>2</strong></span>
+      <span class="category-tag">攻撃</span>
+    </div>
+  </div>
+
+  <div class="monster-card rear" data-id="barrier-maiden" data-role="rear" data-name="バリアメイデン" data-category="回復"
+    onclick="openModal('barrier-maiden')" tabindex="0" role="button" aria-label="バリアメイデンの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">バリアメイデン</span>
+      <span class="badge badge-rear">後衛向</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>16</strong></span>
+      <span>P <strong>2</strong></span>
+      <span class="category-tag">回復</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="yell-dancer" data-role="both" data-name="エールダンサー" data-category="補助"
+    onclick="openModal('yell-dancer')" tabindex="0" role="button" aria-label="エールダンサーの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">エールダンサー</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>11</strong></span>
+      <span>P <strong>2</strong></span>
+      <span class="category-tag">補助</span>
+    </div>
+  </div>
+
+  <div class="monster-card front" data-id="blood-berserker" data-role="front" data-name="ブラッドバーサーカー" data-category="攻撃"
+    onclick="openModal('blood-berserker')" tabindex="0" role="button" aria-label="ブラッドバーサーカーの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">ブラッドバーサーカー</span>
+      <span class="badge badge-front">前衛向</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>12</strong></span>
+      <span>P <strong>4</strong></span>
+      <span class="category-tag">攻撃</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="rune-guardian" data-role="both" data-name="ルーンガードナー" data-category="防御"
+    onclick="openModal('rune-guardian')" tabindex="0" role="button" aria-label="ルーンガードナーの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">ルーンガードナー</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>22</strong></span>
+      <span>P <strong>2</strong></span>
+      <span class="category-tag">防御</span>
+    </div>
+  </div>
+
+  <div class="monster-card front" data-id="shadow-assassin" data-role="front" data-name="シャドウアサシン" data-category="攻撃"
+    onclick="openModal('shadow-assassin')" tabindex="0" role="button" aria-label="シャドウアサシンの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">シャドウアサシン</span>
+      <span class="badge badge-front">前衛向</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>14</strong></span>
+      <span>P <strong>5</strong></span>
+      <span class="category-tag">攻撃</span>
+    </div>
+  </div>
+
+  <div class="monster-card front" data-id="double-edge" data-role="front" data-name="ダブルエッジ" data-category="特殊"
+    onclick="openModal('double-edge')" tabindex="0" role="button" aria-label="ダブルエッジの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">ダブルエッジ</span>
+      <span class="badge badge-front">前衛向</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>17</strong></span>
+      <span>P <strong>4</strong></span>
+      <span class="category-tag">特殊</span>
+    </div>
+  </div>
+
+  <div class="monster-card rear" data-id="soul-reaper" data-role="rear" data-name="ソウルリーパー" data-category="特殊"
+    onclick="openModal('soul-reaper')" tabindex="0" role="button" aria-label="ソウルリーパーの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">ソウルリーパー</span>
+      <span class="badge badge-rear">後衛向</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>9</strong></span>
+      <span>P <strong>3</strong></span>
+      <span class="category-tag">特殊</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="shield-mage" data-role="both" data-name="シールドメイジ" data-category="補助"
+    onclick="openModal('shield-mage')" tabindex="0" role="button" aria-label="シールドメイジの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">シールドメイジ</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>11</strong></span>
+      <span>P <strong>2</strong></span>
+      <span class="category-tag">補助</span>
+    </div>
+  </div>
+
+  <div class="monster-card rear" data-id="reverser" data-role="rear" data-name="リバーサー" data-category="妨害"
+    onclick="openModal('reverser')" tabindex="0" role="button" aria-label="リバーサーの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">リバーサー</span>
+      <span class="badge badge-rear">後衛向</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>8</strong></span>
+      <span>P <strong>2</strong></span>
+      <span class="category-tag">妨害</span>
+    </div>
+  </div>
+
+  <div class="monster-card rear" data-id="time-mage" data-role="rear" data-name="タイムメイジ" data-category="特殊"
+    onclick="openModal('time-mage')" tabindex="0" role="button" aria-label="タイムメイジの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">タイムメイジ</span>
+      <span class="badge badge-rear">後衛向</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>8</strong></span>
+      <span>P <strong>2</strong></span>
+      <span class="category-tag">特殊</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="luna-shapeshifter" data-role="both" data-name="変幻士ルナ" data-category="変幻"
+    onclick="openModal('luna-shapeshifter')" tabindex="0" role="button" aria-label="変幻士ルナの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">変幻士ルナ</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>14</strong></span>
+      <span>P <strong>3</strong></span>
+      <span class="category-tag">変幻</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="shadow-clone-ninja" data-role="both" data-name="影分身の忍" data-category="忍術"
+    onclick="openModal('shadow-clone-ninja')" tabindex="0" role="button" aria-label="影分身の忍の詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">影分身の忍</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>12</strong></span>
+      <span>P <strong>4</strong></span>
+      <span class="category-tag">忍術</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="twin-blade-dancer" data-role="both" data-name="双剣の舞踏士" data-category="舞踏"
+    onclick="openModal('twin-blade-dancer')" tabindex="0" role="button" aria-label="双剣の舞踏士の詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">双剣の舞踏士</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>13</strong></span>
+      <span>P <strong>3</strong></span>
+      <span class="category-tag">舞踏</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="chaos-mage" data-role="both" data-name="混沌の魔法使い" data-category="混沌"
+    onclick="openModal('chaos-mage')" tabindex="0" role="button" aria-label="混沌の魔法使いの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">混沌の魔法使い</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>9</strong></span>
+      <span>P <strong>2</strong></span>
+      <span class="category-tag">混沌</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="holy-blade-hero" data-role="both" data-name="聖剣の勇者" data-category="勇者"
+    onclick="openModal('holy-blade-hero')" tabindex="0" role="button" aria-label="聖剣の勇者の詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">聖剣の勇者</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>18</strong></span>
+      <span>P <strong>3</strong></span>
+      <span class="category-tag">勇者</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="fool-jester" data-role="both" data-name="道化師フール" data-category="道化"
+    onclick="openModal('fool-jester')" tabindex="0" role="button" aria-label="道化師フールの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">道化師フール</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>13</strong></span>
+      <span>P <strong>3</strong></span>
+      <span class="category-tag">道化</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="shadow-puppeteer" data-role="both" data-name="影法師の人形師" data-category="操糸"
+    onclick="openModal('shadow-puppeteer')" tabindex="0" role="button" aria-label="影法師の人形師の詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">影法師の人形師</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>10</strong></span>
+      <span>P <strong>2</strong></span>
+      <span class="category-tag">操糸</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="storm-dancer" data-role="both" data-name="嵐の踊り手" data-category="嵐踊"
+    onclick="openModal('storm-dancer')" tabindex="0" role="button" aria-label="嵐の踊り手の詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">嵐の踊り手</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>12</strong></span>
+      <span>P <strong>3</strong></span>
+      <span class="category-tag">嵐踊</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="mirror-sage" data-role="both" data-name="ミラーセージ" data-category="鏡像"
+    onclick="openModal('mirror-sage')" tabindex="0" role="button" aria-label="ミラーセージの詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">ミラーセージ</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>11</strong></span>
+      <span>P <strong>2</strong></span>
+      <span class="category-tag">鏡像</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="fury-beast" data-role="both" data-name="激昂の獣王" data-category="変身"
+    onclick="openModal('fury-beast')" tabindex="0" role="button" aria-label="激昂の獣王の詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">激昂の獣王</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>15</strong></span>
+      <span>P <strong>4</strong></span>
+      <span class="category-tag">変身</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="stone-wall" data-role="both" data-name="石壁の守護者" data-category="守護"
+    onclick="openModal('stone-wall')" tabindex="0" role="button" aria-label="石壁の守護者の詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">石壁の守護者</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>23</strong></span>
+      <span>P <strong>2</strong></span>
+      <span class="category-tag">守護</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="holy-light-healer" data-role="both" data-name="聖光の癒し手" data-category="聖光"
+    onclick="openModal('holy-light-healer')" tabindex="0" role="button" aria-label="聖光の癒し手の詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">聖光の癒し手</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>13</strong></span>
+      <span>P <strong>2</strong></span>
+      <span class="category-tag">聖光</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="flash-assassin" data-role="both" data-name="閃光の刺客" data-category="閃光"
+    onclick="openModal('flash-assassin')" tabindex="0" role="button" aria-label="閃光の刺客の詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">閃光の刺客</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>8</strong></span>
+      <span>P <strong>6</strong></span>
+      <span class="category-tag">閃光</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="venom-mist" data-role="both" data-name="毒霧の術師" data-category="毒霧"
+    onclick="openModal('venom-mist')" tabindex="0" role="button" aria-label="毒霧の術師の詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">毒霧の術師</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>11</strong></span>
+      <span>P <strong>3</strong></span>
+      <span class="category-tag">毒霧</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="guardian-swordsman" data-role="both" data-name="護法の双剣士" data-category="護法"
+    onclick="openModal('guardian-swordsman')" tabindex="0" role="button" aria-label="護法の双剣士の詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">護法の双剣士</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>15</strong></span>
+      <span>P <strong>4</strong></span>
+      <span class="category-tag">護法</span>
+    </div>
+  </div>
+
+  <div class="monster-card both" data-id="dragon-warrior" data-role="both" data-name="龍吼の戦士" data-category="龍吼"
+    onclick="openModal('dragon-warrior')" tabindex="0" role="button" aria-label="龍吼の戦士の詳細を見る">
+    <div class="card-header">
+      <span class="monster-name">龍吼の戦士</span>
+      <span class="badge badge-both">両用</span>
+    </div>
+    <div class="card-stats">
+      <span>HP <strong>16</strong></span>
+      <span>P <strong>5</strong></span>
+      <span class="category-tag">龍吼</span>
+    </div>
+  </div>
+</div>
+
+
+  <div class="modal" id="modal-iron-golem" role="dialog" aria-modal="true" aria-label="アイアンゴーレム">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('iron-golem')" aria-label="閉じる">✕</button>
+      <h2>アイアンゴーレム <span class="badge badge-front">前衛向</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 28</span>
+        <span class="stat"><span class="stat-label">パワー</span> 3</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 防御</span>
+        
+      </div>
+      <p class="monster-desc">強固な防御力を持つ鉄の巨人。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>鉄拳</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>剛腕打</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>岩砕き</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>鉄壁</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>堅固</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>城壁</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>自己修復</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 4</td>
+    </tr><tr>
+      <td>応急処置</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>鈍足化</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>重圧</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>鍛錬</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>激励</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">高HPと防御カードで前線を支える盾役。アーマーで被ダメを抑えつつ、敵の攻撃を受け止める。後衛を完全に守ることで後衛モンスターが安全に動ける。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">ルーンガードナー</span><span class="syn-tag">ホーリープリースト</span><span class="syn-tag">バリアメイデン</span><span class="syn-tag">石壁の守護者</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-berserk" role="dialog" aria-modal="true" aria-label="ベルセルク">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('berserk')" aria-label="閉じる">✕</button>
+      <h2>ベルセルク <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 15</span>
+        <span class="stat"><span class="stat-label">パワー</span> 5</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 攻撃</span>
+        <span class="stat extra">カウンター: 激昂カウンター(self)</span>
+      </div>
+      <p class="monster-desc">戦いの中で力を増す狂戦士。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>激怒の一撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>激昂カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>狂乱打</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>激昂カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>怒りの嵐</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>激昂カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>暴走突撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>激昂カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>猛攻</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー+1</td>
+    </tr><tr>
+      <td>猛撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー+1</td>
+    </tr><tr>
+      <td>強襲</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー+1</td>
+    </tr><tr>
+      <td>乱撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー+1</td>
+    </tr><tr>
+      <td>気合い</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>闘志</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>雄叫び</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>戦意高揚</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">低HPで高火力の攻撃特化型。低HP状態で発動するスキルが多く、自分のHPを削ることで真価を発揮する。相手の前衛を素早く倒すことを優先。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">ホーリープリースト</span><span class="syn-tag">エールダンサー</span><span class="syn-tag">ブラッドバーサーカー</span><span class="syn-tag">フェニックスウォリアー</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-vampire-lord" role="dialog" aria-modal="true" aria-label="ヴァンパイアロード">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('vampire-lord')" aria-label="閉じる">✕</button>
+      <h2>ヴァンパイアロード <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 18</span>
+        <span class="stat"><span class="stat-label">パワー</span> 4</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 攻撃</span>
+        <span class="stat extra">カウンター: 吸血カウンター(self)</span>
+      </div>
+      <p class="monster-desc">敵の血を吸って強くなる吸血鬼の王。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>吸血牙</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>吸血カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>暗黒の一撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>吸血カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>血の渇望</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>吸血カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>死の接吻</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>吸血カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>闇の爪</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>暗黒打</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>霧散</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>蝙蝠変化</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>血の回復</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 2</td>
+    </tr><tr>
+      <td>再生</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 2</td>
+    </tr><tr>
+      <td>血の力</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>暗黒強化</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">吸血ダメージで自己回復しながら戦う持久型。ダメージを与えるほど回復するため長期戦に強い。敵の回復妨害と組み合わせると効果倍増。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">カースシャーマン</span><span class="syn-tag">ポイズンドクター</span><span class="syn-tag">リバーサー</span><span class="syn-tag">シャドウウィッチ</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-mirror-knight" role="dialog" aria-modal="true" aria-label="ミラーナイト">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('mirror-knight')" aria-label="閉じる">✕</button>
+      <h2>ミラーナイト <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 20</span>
+        <span class="stat"><span class="stat-label">パワー</span> 4</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 防御</span>
+        
+      </div>
+      <p class="monster-desc">攻撃を跳ね返す鏡の騎士。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>鏡の刃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>反射剣</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>光の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>鏡の盾（反撃）</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー<br>[ブロック時] 敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>光の防壁（反撃）</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー<br>[ブロック時] 敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>反射バリア（反撃）</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー<br>[ブロック時] 敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>完全反射（反撃）</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー<br>[ブロック時] 敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>盾構え</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>光の壁</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>鏡の守り</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>光輝</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>鏡の加護</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">防御カードでブロックしながら反撃するカウンター型。ブロック時の反撃効果が強力で、敵が攻撃するほど不利になる。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">アイアンゴーレム</span><span class="syn-tag">バリアメイデン</span><span class="syn-tag">ルーンガードナー</span><span class="syn-tag">護法の双剣士</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-death-knight" role="dialog" aria-modal="true" aria-label="デスナイト">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('death-knight')" aria-label="閉じる">✕</button>
+      <h2>デスナイト <span class="badge badge-front">前衛向</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 16</span>
+        <span class="stat"><span class="stat-label">パワー</span> 6</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 特殊</span>
+        <span class="stat extra">カウンター: 業炎カウンター(self)</span>
+      </div>
+      <p class="monster-desc">自らのHPを代償に強力な攻撃を放つ死の騎士。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>業炎斬</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー+1<br>業炎カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>死の業炎</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー+1<br>業炎カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>業炎解放</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー+1<br>業炎カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>死の剣</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>冥府の刃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>暗黒斬</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>死の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>骸骨の壁</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>死霊強化</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>闇の力</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>冥府の力</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 2</td>
+    </tr><tr>
+      <td>魂の解放</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 2</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">高パワーと暗黒スキルで敵全体を削る攻撃型。連続攻撃やパワーダウンで敵を弱体化しながら戦う。前衛の圧力が高く後衛への抑止力になる。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">シャドウウィッチ</span><span class="syn-tag">カースシャーマン</span><span class="syn-tag">ネクロマンサー</span><span class="syn-tag">ストームウォーロック</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-skeleton-lancer" role="dialog" aria-modal="true" aria-label="スケルトンランサー">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('skeleton-lancer')" aria-label="閉じる">✕</button>
+      <h2>スケルトンランサー <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 19</span>
+        <span class="stat"><span class="stat-label">パワー</span> 4</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 攻撃</span>
+        
+      </div>
+      <p class="monster-desc">槍で前衛と後衛を同時に貫く骸骨の槍兵。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>貫通槍</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>敵後衛にダメージ パワー</td>
+    </tr><tr>
+      <td>連刺</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>敵後衛にダメージ パワー</td>
+    </tr><tr>
+      <td>貫いの一撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>敵後衛にダメージ パワー</td>
+    </tr><tr>
+      <td>骸骨貫通</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>敵後衛にダメージ パワー</td>
+    </tr><tr>
+      <td>槍突き</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>骸骨槍</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>死の穂先</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>骨盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>骸骨防御</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>槍の極意</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>鋭利化</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>死者の闘志</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">後衛への貫通攻撃が得意な槍使い。敵の前衛を無視して後衛を攻撃できるため、後衛モンスターを優先排除できる。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">シャドウアサシン</span><span class="syn-tag">デスナイト</span><span class="syn-tag">ストームウォーロック</span><span class="syn-tag">ダブルエッジ</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-phoenix-warrior" role="dialog" aria-modal="true" aria-label="フェニックスウォリアー">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('phoenix-warrior')" aria-label="閉じる">✕</button>
+      <h2>フェニックスウォリアー <span class="badge badge-front">前衛向</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 16</span>
+        <span class="stat"><span class="stat-label">パワー</span> 4</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 特殊</span>
+        <span class="stat extra">カウンター: 炎鳥カウンター(self)</span><span class="stat extra">復活可</span>
+      </div>
+      <p class="monster-desc">死から蘇る不死鳥の戦士。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>炎の翼</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>不死鳥の爪</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>炎撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>燃焼打</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>炎の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>羽の守り</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>再生の炎</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>不死の力</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>炎の加護</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>炎鳥の一撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>炎鳥カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>不死鳥解放</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>炎鳥カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>炎の輝き</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>炎鳥カウンター+1 → 自身</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">一度倒れても復活できる不死身の戦士。復活後のパワーアップで逆転を狙える。相手に「倒しても意味がない」と思わせる心理的プレッシャーが強み。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">ホーリープリースト</span><span class="syn-tag">エールダンサー</span><span class="syn-tag">聖剣の勇者</span><span class="syn-tag">護法の双剣士</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-storm-warlock" role="dialog" aria-modal="true" aria-label="ストームウォーロック">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('storm-warlock')" aria-label="閉じる">✕</button>
+      <h2>ストームウォーロック <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 17</span>
+        <span class="stat"><span class="stat-label">パワー</span> 5</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 特殊</span>
+        <span class="stat extra">カウンター: 嵐カウンター(self)</span>
+      </div>
+      <p class="monster-desc">嵐を操る強力な魔法使い。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>呪嵐の魔術</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>敵前衛にcurse(1, 2T)</td>
+    </tr><tr>
+      <td>嵐の審判</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>敵前衛にcurse(1, 2T)</td>
+    </tr><tr>
+      <td>呪いの嵐</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>敵前衛にcurse(1, 2T)</td>
+    </tr><tr>
+      <td>魔法の暴風</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>敵前衛にcurse(1, 2T)</td>
+    </tr><tr>
+      <td>雷撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>嵐の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>嵐の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>魔法障壁</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>嵐の力</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>魔力増幅</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>嵐蓄積</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>嵐カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>嵐解放</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>嵐カウンター+1 → 自身</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">嵐風スタックで敵にデバフを積み重ねる支配型。嵐風が蓄積するほど敵のパワーが下がる。長期戦で真価を発揮し、敵の攻撃力を骨抜きにする。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">カースシャーマン</span><span class="syn-tag">エールダンサー</span><span class="syn-tag">リバーサー</span><span class="syn-tag">タイムメイジ</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-guard-beast" role="dialog" aria-modal="true" aria-label="ガードビースト">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('guard-beast')" aria-label="閉じる">✕</button>
+      <h2>ガードビースト <span class="badge badge-front">前衛向</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 25</span>
+        <span class="stat"><span class="stat-label">パワー</span> 3</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 防御</span>
+        
+      </div>
+      <p class="monster-desc">仲間を守るために戦う守護獣。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>守護の牙</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>獣の爪</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>守護の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>堅牢防御</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>鉄壁の守り</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>完全防衛</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>守護の癒し</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 4</td>
+    </tr><tr>
+      <td>精霊の加護</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>後衛の癒し</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方後衛に回復 3</td>
+    </tr><tr>
+      <td>守護強化</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>獣の加護</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>囮作戦</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にカバー</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">高耐久で前衛を固める守護獣。HPが高く防御カードが豊富で、相手の攻撃を長時間受け止められる。後衛を守る盾として最高峰。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">アイアンゴーレム</span><span class="syn-tag">ホーリープリースト</span><span class="syn-tag">バリアメイデン</span><span class="syn-tag">石壁の守護者</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-chain-soldier" role="dialog" aria-modal="true" aria-label="チェインソルジャー">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('chain-soldier')" aria-label="閉じる">✕</button>
+      <h2>チェインソルジャー <span class="badge badge-front">前衛向</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 18</span>
+        <span class="stat"><span class="stat-label">パワー</span> 3</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 特殊</span>
+        <span class="stat extra">カウンター: 連鎖カウンター(self)</span>
+      </div>
+      <p class="monster-desc">連続攻撃で力を蓄える連鎖の兵士。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>連撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>鎖の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>連鎖蓄積</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>連鎖カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>鎖の連打</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>連鎖カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>鎖の嵐</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>連鎖カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>連鎖強化</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>連鎖カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>連鎖爆発</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ カウンター参照</td>
+    </tr><tr>
+      <td>鎖の解放</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ カウンター参照</td>
+    </tr><tr>
+      <td>連鎖開放</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ カウンター参照</td>
+    </tr><tr>
+      <td>鎖の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>防衛態勢</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>連鎖の力</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">連鎖攻撃と拘束で敵を翻弄する特殊型。複数回ヒットで防御を突き破る攻撃と、相手の行動を制限するデバフを組み合わせて戦う。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">デスナイト</span><span class="syn-tag">スケルトンランサー</span><span class="syn-tag">シャドウアサシン</span><span class="syn-tag">双剣の舞踏士</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-holy-priest" role="dialog" aria-modal="true" aria-label="ホーリープリースト">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('holy-priest')" aria-label="閉じる">✕</button>
+      <h2>ホーリープリースト <span class="badge badge-rear">後衛向</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 12</span>
+        <span class="stat"><span class="stat-label">パワー</span> 1</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 回復</span>
+        
+      </div>
+      <p class="monster-desc">回復と蘇生を行う聖なる司祭。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>聖なる癒し</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>光の加護</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>清らかな祈り</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>聖域の恵み</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>大回復</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 5</td>
+    </tr><tr>
+      <td>聖光の癒し</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 5</td>
+    </tr><tr>
+      <td>奇跡の回復</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 5</td>
+    </tr><tr>
+      <td>蘇生の奇跡</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に蘇生</td>
+    </tr><tr>
+      <td>神の加護</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>聖の祝福</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>聖盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>光の守り</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">仲間のHPを回復し続ける純粋な回復役。回復量が高く、前衛がどれだけダメージを受けても立て直せる。長期戦の要。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">アイアンゴーレム</span><span class="syn-tag">ガードビースト</span><span class="syn-tag">フェニックスウォリアー</span><span class="syn-tag">ルーンガードナー</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-shadow-witch" role="dialog" aria-modal="true" aria-label="シャドウウィッチ">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('shadow-witch')" aria-label="閉じる">✕</button>
+      <h2>シャドウウィッチ <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 9</span>
+        <span class="stat"><span class="stat-label">パワー</span> 5</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 攻撃</span>
+        
+      </div>
+      <p class="monster-desc">敵の後衛を直接狙う影の魔女。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>影の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵後衛にダメージ パワー</td>
+    </tr><tr>
+      <td>暗黒矢</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵後衛にダメージ パワー</td>
+    </tr><tr>
+      <td>影の穿ち</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵後衛にダメージ パワー</td>
+    </tr><tr>
+      <td>闇の呪弾</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵後衛にダメージ パワー</td>
+    </tr><tr>
+      <td>魔法の剣</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>影剣</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>暗黒の矢</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>影の爪</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>影隠れ</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>暗黒防御</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>影の力</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>暗黒強化</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">低HPで高パワーを誇るガラスキャノン。毒や弱体化で敵を蝕みながら高火力で仕留める。守りが薄いため前衛の保護が必須。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">アイアンゴーレム</span><span class="syn-tag">ルーンガードナー</span><span class="syn-tag">ガードビースト</span><span class="syn-tag">バリアメイデン</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-curse-shaman" role="dialog" aria-modal="true" aria-label="カースシャーマン">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('curse-shaman')" aria-label="閉じる">✕</button>
+      <h2>カースシャーマン <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 10</span>
+        <span class="stat"><span class="stat-label">パワー</span> 2</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 妨害</span>
+        <span class="stat extra">カウンター: 呪いカウンター(apply)</span>
+      </div>
+      <p class="monster-desc">敵に呪いをかけて弱らせる呪術師。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>呪いの印</td>
+      <td><span class="type-tag" style="background:#888">counter</span></td>
+      <td>敵前衛にcurse(1, 3T)<br>呪いカウンター+1 → 自身</td>
+    </tr><tr>
+      <td>呪術の儀</td>
+      <td><span class="type-tag" style="background:#888">counter</span></td>
+      <td>敵前衛にcurse(1, 3T)<br>呪いカウンター+1 → 自身</td>
+    </tr><tr>
+      <td>闇の呪縛</td>
+      <td><span class="type-tag" style="background:#888">counter</span></td>
+      <td>敵前衛にcurse(1, 3T)<br>呪いカウンター+1 → 自身</td>
+    </tr><tr>
+      <td>死の呪い</td>
+      <td><span class="type-tag" style="background:#888">counter</span></td>
+      <td>敵前衛にcurse(1, 3T)<br>呪いカウンター+1 → 自身</td>
+    </tr><tr>
+      <td>弱体の術</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>力の呪縛</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>闇の弱体化</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>呪いの弱体</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>呪術打</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>闇の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>呪いの盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>闇の護り</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">呪いで敵の回復を封じながら弱体化させる妨害型。敵が回復するほど呪いが刺さり、長期戦で相手を詰ませる。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">ヴァンパイアロード</span><span class="syn-tag">ポイズンドクター</span><span class="syn-tag">ストームウォーロック</span><span class="syn-tag">毒霧の術師</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-war-bird" role="dialog" aria-modal="true" aria-label="ウォーバード">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('war-bird')" aria-label="閉じる">✕</button>
+      <h2>ウォーバード <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 12</span>
+        <span class="stat"><span class="stat-label">パワー</span> 2</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 補助</span>
+        
+      </div>
+      <p class="monster-desc">仲間のカウンターを増やす戦闘鳥。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>鼓舞の羽ばたき</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 2</td>
+    </tr><tr>
+      <td>戦鳥の加護</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 2</td>
+    </tr><tr>
+      <td>猛翼の力</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 2</td>
+    </tr><tr>
+      <td>戦の咆哮</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 2</td>
+    </tr><tr>
+      <td>カウンター増幅</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>味方前衛にカウンター+</td>
+    </tr><tr>
+      <td>連携の翼</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>味方前衛にカウンター+</td>
+    </tr><tr>
+      <td>戦鳥の支援</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>味方前衛にカウンター+</td>
+    </tr><tr>
+      <td>鼓舞の掛け声</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>味方前衛にカウンター+</td>
+    </tr><tr>
+      <td>翼の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>戦鳥の爪</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>翼の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>翼の守り</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">仲間にパワーアップを付与するサポーター。自分は弱くても味方を強化することで間接的に戦う。コンボ戦法の起点になる。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">デスナイト</span><span class="syn-tag">ベルセルク</span><span class="syn-tag">閃光の刺客</span><span class="syn-tag">龍吼の戦士</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-necromancer" role="dialog" aria-modal="true" aria-label="ネクロマンサー">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('necromancer')" aria-label="閉じる">✕</button>
+      <h2>ネクロマンサー <span class="badge badge-rear">後衛向</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 11</span>
+        <span class="stat"><span class="stat-label">パワー</span> 2</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 補助</span>
+        <span class="stat extra">カウンター: 死霊カウンター(self)</span>
+      </div>
+      <p class="monster-desc">死者を蘇らせる死霊術師。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>死者召喚</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に蘇生</td>
+    </tr><tr>
+      <td>死霊強化</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>味方前衛にパワー↑ 1<br>死霊カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>死霊の呼び声</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>味方前衛にパワー↑ 1<br>死霊カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>魂の蓄積</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>味方前衛にパワー↑ 1<br>死霊カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>魔力付与</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>死霊の加護</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>魂の力</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>死霊打</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>魂の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>骸骨の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>死霊の護り</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>死霊の回復</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">仲間を蘇生させる特殊なサポーター。倒れた前衛を復活させることで相手の計算を狂わせる。蘇生タイミングが戦局を左右する。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">フェニックスウォリアー</span><span class="syn-tag">ベルセルク</span><span class="syn-tag">ブラッドバーサーカー</span><span class="syn-tag">護法の双剣士</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-poison-doctor" role="dialog" aria-modal="true" aria-label="ポイズンドクター">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('poison-doctor')" aria-label="閉じる">✕</button>
+      <h2>ポイズンドクター <span class="badge badge-rear">後衛向</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 10</span>
+        <span class="stat"><span class="stat-label">パワー</span> 2</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 妨害</span>
+        <span class="stat extra">カウンター: 毒カウンター(apply)</span>
+      </div>
+      <p class="monster-desc">毒で敵を蝕む毒医師。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>毒の注射</td>
+      <td><span class="type-tag" style="background:#888">counter</span></td>
+      <td>敵前衛にpoison(1, 3T)<br>毒カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>猛毒の薬</td>
+      <td><span class="type-tag" style="background:#888">counter</span></td>
+      <td>敵前衛にpoison(1, 3T)<br>毒カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>毒液散布</td>
+      <td><span class="type-tag" style="background:#888">counter</span></td>
+      <td>敵前衛にpoison(1, 3T)<br>毒カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>致死毒</td>
+      <td><span class="type-tag" style="background:#888">counter</span></td>
+      <td>敵前衛にpoison(1, 3T)<br>毒カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>毒の霧</td>
+      <td><span class="type-tag" style="background:#888">counter</span></td>
+      <td>敵前衛にpoison(1, 3T)<br>毒カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>解毒妨害</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>神経毒</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>麻痺毒</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>注射器</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>毒の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>解毒の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>医術防御</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">毒を蓄積させて持続ダメージで削る長期戦型。毒の蓄積量が増えるほど毎ターンのダメージが大きくなる。防御が高い相手に特に有効。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">カースシャーマン</span><span class="syn-tag">毒霧の術師</span><span class="syn-tag">シャドウウィッチ</span><span class="syn-tag">リバーサー</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-echo-mage" role="dialog" aria-modal="true" aria-label="エコーメイジ">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('echo-mage')" aria-label="閉じる">✕</button>
+      <h2>エコーメイジ <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 8</span>
+        <span class="stat"><span class="stat-label">パワー</span> 3</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 特殊</span>
+        
+      </div>
+      <p class="monster-desc">仲間の力を増幅させる反響魔術師。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>共鳴打撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>味方前衛にカウンター+</td>
+    </tr><tr>
+      <td>反響の一撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>味方前衛にカウンター+</td>
+    </tr><tr>
+      <td>共鳴の波動</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>味方前衛にカウンター+</td>
+    </tr><tr>
+      <td>反響打</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>味方前衛にカウンター+</td>
+    </tr><tr>
+      <td>増幅</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>共鳴増幅</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>反響強化</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>魔法の波</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>共鳴弾</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>反響の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>共鳴の守り</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>自己強化</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">エコーカウンターでスキルを二重発動させる特殊型。通常のスキルをコピーして2倍の効果を得る。タイミングを合わせることで爆発的な火力を出せる。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">ストームウォーロック</span><span class="syn-tag">デスナイト</span><span class="syn-tag">混沌の魔法使い</span><span class="syn-tag">ホーリープリースト</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-storm-shaman" role="dialog" aria-modal="true" aria-label="ストームシャーマン">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('storm-shaman')" aria-label="閉じる">✕</button>
+      <h2>ストームシャーマン <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 9</span>
+        <span class="stat"><span class="stat-label">パワー</span> 2</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 攻撃</span>
+        <span class="stat extra">カウンター: 烈風カウンター(apply)</span>
+      </div>
+      <p class="monster-desc">嵐の力で敵を苦しめる嵐の巫女。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>烈風の刃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>敵前衛にstormwind(1, 3T)<br>烈風カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>嵐の術</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>敵前衛にstormwind(1, 3T)<br>烈風カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>暴風の一撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>敵前衛にstormwind(1, 3T)<br>烈風カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>烈風の嵐</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>敵前衛にstormwind(1, 3T)<br>烈風カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>風の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>嵐撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>烈風打</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>暴風の矢</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>風の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>嵐の護り</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>烈風弱体</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>嵐の呪縛</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">嵐スタックを素早く積んで敵を弱体化させる速攻型。序盤から嵐風を積み重ね、中盤以降は弱体化した敵に高火力で攻める。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">ストームウォーロック</span><span class="syn-tag">カースシャーマン</span><span class="syn-tag">エールダンサー</span><span class="syn-tag">毒霧の術師</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-barrier-maiden" role="dialog" aria-modal="true" aria-label="バリアメイデン">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('barrier-maiden')" aria-label="閉じる">✕</button>
+      <h2>バリアメイデン <span class="badge badge-rear">後衛向</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 16</span>
+        <span class="stat"><span class="stat-label">パワー</span> 2</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 回復</span>
+        
+      </div>
+      <p class="monster-desc">仲間を守る障壁を張る乙女。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>障壁の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>光の障壁</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>完璧な防御</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>守護の壁</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>癒しの光</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 4</td>
+    </tr><tr>
+      <td>聖なる癒し</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>後衛の回復</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方後衛に回復 2</td>
+    </tr><tr>
+      <td>障壁の力</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>光の加護</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>後衛の祝福</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方後衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>障壁の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>光の矢</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">仲間全体にバリアを展開する守護型。バリアで次のダメージを無効化し、回復も行える。攻め込まれたときの立て直しに優秀。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">アイアンゴーレム</span><span class="syn-tag">ガードビースト</span><span class="syn-tag">ホーリープリースト</span><span class="syn-tag">ルーンガードナー</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-yell-dancer" role="dialog" aria-modal="true" aria-label="エールダンサー">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('yell-dancer')" aria-label="閉じる">✕</button>
+      <h2>エールダンサー <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 11</span>
+        <span class="stat"><span class="stat-label">パワー</span> 2</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 補助</span>
+        <span class="stat extra">カウンター: 応援カウンター(threshold)</span>
+      </div>
+      <p class="monster-desc">応援で仲間を鼓舞するダンサー。</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>応援の歌</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方全体にパワー↑ 1</td>
+    </tr><tr>
+      <td>鼓舞の踊り</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方全体にパワー↑ 1</td>
+    </tr><tr>
+      <td>応援の炎</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 2</td>
+    </tr><tr>
+      <td>踊り子の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>応援打</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>鼓舞の蹴り</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>癒しの踊り</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>応援の加護</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>軽やかな回避</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>踊りの守り</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>応援の極み</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>味方前衛にパワー↑ 1<br>応援カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>鼓舞の連携</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>味方前衛にパワー↑ 1<br>応援カウンター+1 → 自身</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">激励でチームのパワーを底上げするバッファー型。閾値を超えると全体パワーアップが発動し、チームの瞬間火力が跳ね上がる。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">デスナイト</span><span class="syn-tag">ベルセルク</span><span class="syn-tag">龍吼の戦士</span><span class="syn-tag">激昂の獣王</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-blood-berserker" role="dialog" aria-modal="true" aria-label="ブラッドバーサーカー">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('blood-berserker')" aria-label="閉じる">✕</button>
+      <h2>ブラッドバーサーカー <span class="badge badge-front">前衛向</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 12</span>
+        <span class="stat"><span class="stat-label">パワー</span> 4</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 攻撃</span>
+        <span class="stat extra">HP比例パワー</span><span class="stat extra">カウンター: 血炎カウンター(self)</span>
+      </div>
+      <p class="monster-desc">HPが低いほど攻撃力が上昇。覚醒状態で最大+6パワー</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>血炎の一撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>血炎カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>業火の突撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>血炎カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>鮮血の爆発</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>血炎カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>覚醒の咆哮</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>血炎カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>血の刃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>狂化斬り</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>断末魔の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>血染めの剣</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>赤き嵐</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>血の覚醒</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>狂戦士の気合</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>血の誓い</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">自分のHPに比例したパワーで攻撃する特殊型。HPが低いほど攻撃力が落ちるため、常にHP管理が重要。回復を組み合わせて高HP・高火力を維持する。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">ホーリープリースト</span><span class="syn-tag">バリアメイデン</span><span class="syn-tag">エールダンサー</span><span class="syn-tag">ウォーバード</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-rune-guardian" role="dialog" aria-modal="true" aria-label="ルーンガードナー">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('rune-guardian')" aria-label="閉じる">✕</button>
+      <h2>ルーンガードナー <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 22</span>
+        <span class="stat"><span class="stat-label">パワー</span> 2</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 防御</span>
+        <span class="stat extra">カウンター: 魔紋カウンター(threshold)</span>
+      </div>
+      <p class="monster-desc">防御のたびに魔紋を刻む。4で全味方にアーマーを付与</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>魔紋の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>刻印の剣</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>魔紋の盾</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自身にカバー<br>魔紋カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>符文防御</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自身にカバー<br>魔紋カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>古代の守護</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自身にカバー<br>魔紋カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>刻印の壁</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自身にカバー<br>魔紋カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>魔紋反撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自身にカバー<br>[ブロック時] 敵前衛にダメージ パワー<br>魔紋カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>符文の反撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自身にカバー<br>[ブロック時] 敵前衛にダメージ パワー<br>魔紋カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>魔紋の癒し</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>守護の光</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>魔紋強化</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>符文の力</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">魔法防御（アーマー）で魔法ダメージを軽減する守護者。アーマーが高い状態では魔法系の攻撃をほぼ無効化できる。物理攻撃には通常通りダメージを受ける。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">アイアンゴーレム</span><span class="syn-tag">ホーリープリースト</span><span class="syn-tag">バリアメイデン</span><span class="syn-tag">護法の双剣士</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-shadow-assassin" role="dialog" aria-modal="true" aria-label="シャドウアサシン">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('shadow-assassin')" aria-label="閉じる">✕</button>
+      <h2>シャドウアサシン <span class="badge badge-front">前衛向</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 14</span>
+        <span class="stat"><span class="stat-label">パワー</span> 5</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 攻撃</span>
+        <span class="stat extra">カウンター: 暗殺カウンター(self)</span>
+      </div>
+      <p class="monster-desc">前衛ながら後衛を直接狙える。暗殺成功でパワー上昇</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>暗殺の刃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵後衛にダメージ パワー<br>暗殺カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>影の一突き</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵後衛にダメージ パワー<br>暗殺カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>暗闇の刺客</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵後衛にダメージ パワー<br>暗殺カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>影から死</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵後衛にダメージ パワー<br>暗殺カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>影斬り</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>素早い一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>暗殺者の剣</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>闇の切っ先</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>影隠れ</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>暗闇の回避</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>暗殺の覚醒</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>影の強化</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">隠密から一撃で敵を仕留める暗殺者。ステルスで行動を隠しながら強力な一撃を放つ。ブロックに成功すると大反撃ができる。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">カースシャーマン</span><span class="syn-tag">シャドウウィッチ</span><span class="syn-tag">リバーサー</span><span class="syn-tag">影法師の人形師</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-double-edge" role="dialog" aria-modal="true" aria-label="ダブルエッジ">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('double-edge')" aria-label="閉じる">✕</button>
+      <h2>ダブルエッジ <span class="badge badge-front">前衛向</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 17</span>
+        <span class="stat"><span class="stat-label">パワー</span> 4</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 特殊</span>
+        <span class="stat extra">カウンター: 連撃カウンター(self)</span>
+      </div>
+      <p class="monster-desc">2回ヒット攻撃。毒・吸血など「ヒット数」を参照するモンスターと好相性</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>連続斬り</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー×0.5<br>敵前衛にダメージ パワー×0.5<br>連撃カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>ダブルストライク</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー×0.5<br>敵前衛にダメージ パワー×0.5<br>連撃カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>二連の刃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー×0.5<br>敵前衛にダメージ パワー×0.5<br>連撃カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>双刃の嵐</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー×0.5<br>敵前衛にダメージ パワー×0.5<br>連撃カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>鋭い一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>両刃の剣</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>切り込み</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>両刃の防御</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>刃の壁</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>双刃強化</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>連撃の覚醒</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>連撃の極み</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>連撃カウンター+2 → 自身</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">自分にもダメージが入る諸刃の剣スタイル。高火力の代わりに自傷リスクがある。回復サポートと組み合わせてリスクを管理する。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">ホーリープリースト</span><span class="syn-tag">バリアメイデン</span><span class="syn-tag">ネクロマンサー</span><span class="syn-tag">フェニックスウォリアー</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-soul-reaper" role="dialog" aria-modal="true" aria-label="ソウルリーパー">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('soul-reaper')" aria-label="閉じる">✕</button>
+      <h2>ソウルリーパー <span class="badge badge-rear">後衛向</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 9</span>
+        <span class="stat"><span class="stat-label">パワー</span> 3</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 特殊</span>
+        <span class="stat extra">カウンター: 魂カウンター(self)</span>
+      </div>
+      <p class="monster-desc">仲間の死を力に変える。フェニックスとの組み合わせで繰り返し強化可能</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>魂の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>死の刃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>魂の嵐</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>怨念の斬撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>魂の追撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵後衛にダメージ パワー</td>
+    </tr><tr>
+      <td>怨霊の刃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵後衛にダメージ パワー</td>
+    </tr><tr>
+      <td>死霊の爪</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵後衛にダメージ パワー</td>
+    </tr><tr>
+      <td>魂の呪縛</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>死の束縛</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>魂の加護</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>死者の力</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>魂の癒し</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方後衛に回復 3</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">敵を倒すごとにカウンターを蓄積して超強化される魂収集型。倒した数に応じてスキルが強化される。積極的に敵を倒しにいく攻め戦略が基本。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">デスナイト</span><span class="syn-tag">シャドウアサシン</span><span class="syn-tag">閃光の刺客</span><span class="syn-tag">龍吼の戦士</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-shield-mage" role="dialog" aria-modal="true" aria-label="シールドメイジ">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('shield-mage')" aria-label="閉じる">✕</button>
+      <h2>シールドメイジ <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 11</span>
+        <span class="stat"><span class="stat-label">パワー</span> 2</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 補助</span>
+        <span class="stat extra">カウンター: 魔盾カウンター(self)</span>
+      </div>
+      <p class="monster-desc">シールドを味方に付与。カウンターが積まれるほど強固なシールドを展開</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>魔法の盾</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>味方前衛にarmor(2, 2T)<br>魔盾カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>符文の護り</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>味方前衛にarmor(2, 2T)<br>魔盾カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>鉄壁の守護</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>味方前衛にarmor(2, 2T)<br>魔盾カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>障壁の詠唱</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>味方前衛にarmor(2, 2T)<br>魔盾カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>後衛の盾</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方後衛にarmor(2, 2T)</td>
+    </tr><tr>
+      <td>後方守護</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方後衛にarmor(2, 2T)</td>
+    </tr><tr>
+      <td>強固な盾</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にarmor(3, 2T)</td>
+    </tr><tr>
+      <td>大魔盾</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にarmor(3, 2T)</td>
+    </tr><tr>
+      <td>魔法強化</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>盾の鼓舞</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>盾の癒し</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>魔盾防御</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">味方全体に魔法シールドを貼るサポーター。魔法防御を高めることで後衛を守りつつ、自分も攻撃に参加できる万能型。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">ホーリープリースト</span><span class="syn-tag">バリアメイデン</span><span class="syn-tag">ルーンガードナー</span><span class="syn-tag">エコーメイジ</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-reverser" role="dialog" aria-modal="true" aria-label="リバーサー">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('reverser')" aria-label="閉じる">✕</button>
+      <h2>リバーサー <span class="badge badge-rear">後衛向</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 8</span>
+        <span class="stat"><span class="stat-label">パワー</span> 2</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 妨害</span>
+        <span class="stat extra">カウンター: 逆転カウンター(apply)</span>
+      </div>
+      <p class="monster-desc">相手のバフを呪いに変える。強化型デッキへの天敵</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>逆転の呪い</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にreverse(1, 3T)<br>逆転カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>反転魔法</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にreverse(1, 3T)<br>逆転カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>呪いの反転</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にreverse(1, 3T)<br>逆転カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>逆転の刻印</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にreverse(1, 3T)<br>逆転カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>後衛反転</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵後衛にreverse(1, 3T)</td>
+    </tr><tr>
+      <td>影の逆転</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵後衛にreverse(1, 3T)</td>
+    </tr><tr>
+      <td>力の封印</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>弱体の呪い</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>逆転の弱体</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>逆転の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>反転斬り</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>逆転防御</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">敵の強化を無効・反転させる逆転の魔術師。敵のパワーアップを剥がしたり敵の回復を妨害したりする。有利な状態の敵に特に刺さる。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">カースシャーマン</span><span class="syn-tag">ストームウォーロック</span><span class="syn-tag">ポイズンドクター</span><span class="syn-tag">タイムメイジ</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-time-mage" role="dialog" aria-modal="true" aria-label="タイムメイジ">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('time-mage')" aria-label="閉じる">✕</button>
+      <h2>タイムメイジ <span class="badge badge-rear">後衛向</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 8</span>
+        <span class="stat"><span class="stat-label">パワー</span> 2</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 特殊</span>
+        <span class="stat extra">カウンター: 時空カウンター(threshold)</span>
+      </div>
+      <p class="monster-desc">時間を操りカードの順番を入れ替える。タイミング次第でゲームを覆す</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>時の加速</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>時間強化</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>過去の力</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>未来の力</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>時の流れ</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方後衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>時間の歪み</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方後衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>時の裂け目</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方後衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>時間の封印</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>過去への退行</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>時の呪縛</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>時の裁き</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>時の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">時間操作で遅延効果を付与する変則型。敵のスキル効果を遅らせることで戦況をコントロールする。閾値発動で全体スロウも可能。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">リバーサー</span><span class="syn-tag">ストームウォーロック</span><span class="syn-tag">カースシャーマン</span><span class="syn-tag">混沌の魔法使い</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-luna-shapeshifter" role="dialog" aria-modal="true" aria-label="変幻士ルナ">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('luna-shapeshifter')" aria-label="閉じる">✕</button>
+      <h2>変幻士ルナ <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 14</span>
+        <span class="stat"><span class="stat-label">パワー</span> 3</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 変幻</span>
+        <span class="stat extra">カウンター: 変幻カウンター(self)</span>
+      </div>
+      <p class="monster-desc">前衛なら刃、後衛なら癒しの手。どちらでも変幻自在に戦う万能士</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>変幻の一撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>[前衛時] 敵前衛にダメージ パワー<br>[前衛時] 変幻カウンター+1 → 自身<br>[後衛時] 味方前衛に回復 3<br>[後衛時] 変幻カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>二面の術</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>[前衛時] 敵前衛にダメージ パワー<br>[前衛時] 変幻カウンター+1 → 自身<br>[後衛時] 味方前衛にパワー↑ 1<br>[後衛時] 変幻カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>変化の刃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>[前衛時] 敵前衛にダメージ 3<br>[前衛時] 変幻カウンター+1 → 自身<br>[後衛時] 味方前衛に回復 3<br>[後衛時] 変幻カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>月影の術</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>[前衛時] 敵前衛にダメージ パワー<br>[前衛時] 変幻カウンター+1 → 自身<br>[後衛時] 味方前衛に回復 2<br>[後衛時] 味方後衛に回復 2<br>[後衛時] 変幻カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>変幻斬り</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>光の刃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>癒しの光</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>変幻の癒し</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方後衛に回復 3</td>
+    </tr><tr>
+      <td>変幻強化</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>幻惑の呪い</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>変幻防御</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>月の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">前衛と後衛で全く異なる効果を発揮する変幻自在の使い手。前衛時は攻撃的に、後衛時は支援的に動く。配置によって戦法が変わるトリッキーな存在。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">影分身の忍</span><span class="syn-tag">混沌の魔法使い</span><span class="syn-tag">道化師フール</span><span class="syn-tag">嵐の踊り手</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-shadow-clone-ninja" role="dialog" aria-modal="true" aria-label="影分身の忍">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('shadow-clone-ninja')" aria-label="閉じる">✕</button>
+      <h2>影分身の忍 <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 12</span>
+        <span class="stat"><span class="stat-label">パワー</span> 4</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 忍術</span>
+        <span class="stat extra">カウンター: 忍術カウンター(self)</span>
+      </div>
+      <p class="monster-desc">前でも後ろでも影分身が活躍する万能忍者</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>影分身の斬撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>忍術カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>忍びの一刀</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>忍術カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>分身斬り</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>忍術カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>闇の連撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>忍術カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>影の追撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵後衛にダメージ パワー</td>
+    </tr><tr>
+      <td>忍の暗殺</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵後衛にダメージ パワー</td>
+    </tr><tr>
+      <td>忍の加護</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>分身の力</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>忍の回復</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>自身に回復 3</td>
+    </tr><tr>
+      <td>影の癒し</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>忍の回避</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>分身防御</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">分身を駆使して攻守を撹乱する忍者型。前衛では高火力の単体攻撃、後衛では分身によるカバーを使い分ける。位置取りが鍵。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">シャドウアサシン</span><span class="syn-tag">変幻士ルナ</span><span class="syn-tag">影法師の人形師</span><span class="syn-tag">道化師フール</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-twin-blade-dancer" role="dialog" aria-modal="true" aria-label="双剣の舞踏士">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('twin-blade-dancer')" aria-label="閉じる">✕</button>
+      <h2>双剣の舞踏士 <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 13</span>
+        <span class="stat"><span class="stat-label">パワー</span> 3</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 舞踏</span>
+        <span class="stat extra">カウンター: 舞踏カウンター(threshold)</span>
+      </div>
+      <p class="monster-desc">攻守バランスに優れ、どちらに置いてもチームに貢献する踊り手</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>双剣の舞</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>舞踏カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>旋風斬り</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>舞踏カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>踊り子の一撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>舞踏カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>舞いの回避</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自身にカバー<br>[ブロック時] 敵前衛にダメージ パワー<br>舞踏カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>優雅な防御</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自身にカバー<br>舞踏カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>踊りの癒し</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>舞踏の祝福</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方後衛に回復 3</td>
+    </tr><tr>
+      <td>双剣強化</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>踊りの鼓舞</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>舞いの惑わし</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>双刃連撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>旋回の刃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">双剣舞踏で前衛後衛ともに活躍するオールラウンダー。前衛では連続攻撃、後衛ではパワーアップ付与。閾値発動でさらに強化される。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">エールダンサー</span><span class="syn-tag">ウォーバード</span><span class="syn-tag">嵐の踊り手</span><span class="syn-tag">龍吼の戦士</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-chaos-mage" role="dialog" aria-modal="true" aria-label="混沌の魔法使い">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('chaos-mage')" aria-label="閉じる">✕</button>
+      <h2>混沌の魔法使い <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 9</span>
+        <span class="stat"><span class="stat-label">パワー</span> 2</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 混沌</span>
+        <span class="stat extra">カウンター: 混沌カウンター(threshold)</span>
+      </div>
+      <p class="monster-desc">予測不能な混沌をばらまく。敵も味方も驚く行動で場を掌握する</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>混沌の爆発</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ 3<br>味方前衛に回復 2<br>混沌カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>無秩序の波動</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>味方前衛にパワー↑ 1<br>混沌カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>混乱の渦</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]<br>味方前衛に回復 3<br>混沌カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>破滅と再生</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>味方前衛にパワー↑ 1<br>混沌カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>混沌の呪縛</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にpoison(1, 2T)<br>味方前衛に回復 2</td>
+    </tr><tr>
+      <td>混沌の嵐</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にstormwind(2, 2T)<br>自身に回復 2</td>
+    </tr><tr>
+      <td>混沌の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>無秩序の刃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>混沌の加護</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>破滅の力</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>混沌の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>再生の混沌</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 2<br>味方後衛に回復 2</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">カオスエネルギーで予測不能な効果を発動する混沌の術師。前衛時は攻撃的なカオス魔法、後衛時は敵を混乱させるデバフ。不確実性を武器にする。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">タイムメイジ</span><span class="syn-tag">リバーサー</span><span class="syn-tag">エコーメイジ</span><span class="syn-tag">変幻士ルナ</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-holy-blade-hero" role="dialog" aria-modal="true" aria-label="聖剣の勇者">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('holy-blade-hero')" aria-label="閉じる">✕</button>
+      <h2>聖剣の勇者 <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 18</span>
+        <span class="stat"><span class="stat-label">パワー</span> 3</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 勇者</span>
+        <span class="stat extra">カウンター: 勇気カウンター(self)</span>
+      </div>
+      <p class="monster-desc">突出した特徴はないが、どの位置でも安定感抜群の頼れる勇者</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>聖剣の一撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>勇気カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>勇者の剣閃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>勇気カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>聖なる斬撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>勇気カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>勇気の刃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>勇気カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>聖盾防御</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自身にカバー<br>[ブロック時] 敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>勇者の守り</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>聖剣の癒し</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>勇者の加護</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方後衛に回復 3</td>
+    </tr><tr>
+      <td>聖なる強化</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>勇者の鼓舞</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>聖剣の封印</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>勇者の必殺技</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ 4</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">聖なる剣で攻撃しながら味方を回復する勇者型。自分が攻撃するたびに味方のHPが回復するため、攻撃しながらチームを維持できる。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">フェニックスウォリアー</span><span class="syn-tag">護法の双剣士</span><span class="syn-tag">ホーリープリースト</span><span class="syn-tag">バリアメイデン</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-fool-jester" role="dialog" aria-modal="true" aria-label="道化師フール">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('fool-jester')" aria-label="閉じる">✕</button>
+      <h2>道化師フール <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 13</span>
+        <span class="stat"><span class="stat-label">パワー</span> 3</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 道化</span>
+        <span class="stat extra">カウンター: 道化カウンター(threshold)</span>
+      </div>
+      <p class="monster-desc">混乱こそが最強の戦術。前後衛を激しく入れ替えて敵の読みを完全に狂わせる</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>道化の入れ替え斬り</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>敵前衛にダメージ パワー<br>道化カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>混乱の一撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>敵前衛にダメージ パワー<br>道化カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>道化の奇策</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>敵前衛にダメージ パワー<br>道化カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>笑いの剣閃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>敵前衛にダメージ パワー<br>道化カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>道化の補強</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>味方前衛にパワー↑ 1<br>道化カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>入れ替えの儀</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>味方前衛にパワー↑ 1<br>道化カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>道化の笑撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>混乱の剣</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>道化の回避</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>笑いの盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>道化の癒し</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>自身に回復 3</td>
+    </tr><tr>
+      <td>道化の極み</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>道化カウンター+2 → 自身</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">道化師の奇策で戦線を撹乱するトリックスター。自陣の前後を入れ替えたり、敵の隊列を入れ替えたりしてポジションを崩す。閾値発動で奇策が増す。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">影法師の人形師</span><span class="syn-tag">変幻士ルナ</span><span class="syn-tag">ミラーセージ</span><span class="syn-tag">嵐の踊り手</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-shadow-puppeteer" role="dialog" aria-modal="true" aria-label="影法師の人形師">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('shadow-puppeteer')" aria-label="閉じる">✕</button>
+      <h2>影法師の人形師 <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 10</span>
+        <span class="stat"><span class="stat-label">パワー</span> 2</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 操糸</span>
+        <span class="stat extra">カウンター: 操糸カウンター(threshold)</span>
+      </div>
+      <p class="monster-desc">糸で操る傀儡師。自軍も敵軍も思いのままに入れ替え戦場を支配する</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>人形師の入れ替え</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>敵前衛にダメージ パワー<br>操糸カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>糸の一撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>敵前衛にダメージ パワー<br>操糸カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>操糸斬り</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>敵前衛にダメージ パワー<br>操糸カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>敵陣混乱</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵陣前後交換<br>操糸カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>傀儡の命令</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵陣前後交換<br>操糸カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>支配の糸</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵陣前後交換<br>操糸カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>全入れ替え</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>敵陣前後交換<br>操糸カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>操糸の呪縛</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>糸の弱体</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>人形の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>操糸の回復</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>人形師の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">糸で敵を操り自陣の有利を作る操り師。敵の前後を入れ替えることで弱い敵を前衛に引き出したり、強い敵を後衛に引っ込めたりする。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">道化師フール</span><span class="syn-tag">シャドウアサシン</span><span class="syn-tag">ミラーセージ</span><span class="syn-tag">スケルトンランサー</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-storm-dancer" role="dialog" aria-modal="true" aria-label="嵐の踊り手">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('storm-dancer')" aria-label="閉じる">✕</button>
+      <h2>嵐の踊り手 <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 12</span>
+        <span class="stat"><span class="stat-label">パワー</span> 3</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 嵐踊</span>
+        <span class="stat extra">カウンター: 旋風カウンター(self)</span>
+      </div>
+      <p class="monster-desc">嵐のように入れ替わりながら戦う。入れ替えた瞬間に最大火力を叩き込む</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>嵐の入れ替え</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>味方前衛にパワー↑ 2 [遅延]<br>旋風カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>旋風の舞</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>味方前衛にパワー↑ 2 [遅延]<br>旋風カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>嵐の舞踏</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>味方前衛にパワー↑ 2 [遅延]<br>旋風カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>風の奇策</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>味方前衛にパワー↑ 2 [遅延]<br>旋風カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>嵐の連撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>敵前衛にダメージ パワー<br>旋風カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>旋風斬り</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>敵前衛にダメージ パワー<br>旋風カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>嵐の刃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>旋風の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>嵐の覚醒</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>嵐の癒し</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>嵐の回避</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>旋風の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">嵐の舞で前後どちらの位置でも機能する踊り子。前衛では嵐攻撃、後衛では嵐バフ付与。位置を入れ替えながら状況に応じた役割を果たす。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">ストームウォーロック</span><span class="syn-tag">ストームシャーマン</span><span class="syn-tag">双剣の舞踏士</span><span class="syn-tag">道化師フール</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-mirror-sage" role="dialog" aria-modal="true" aria-label="ミラーセージ">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('mirror-sage')" aria-label="閉じる">✕</button>
+      <h2>ミラーセージ <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 11</span>
+        <span class="stat"><span class="stat-label">パワー</span> 2</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 鏡像</span>
+        <span class="stat extra">カウンター: 鏡像カウンター(threshold)</span>
+      </div>
+      <p class="monster-desc">HPを鏡に映して入れ替える魔法使い。HP操作で生存率を極限まで高める</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>鏡の入れ替え</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>自陣HP交換<br>鏡像カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>鏡像交換</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>自陣HP交換<br>鏡像カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>生命の鏡</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>自陣HP交換<br>鏡像カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>鏡の奇跡</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>自陣HP交換<br>鏡像カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>鏡の斬撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>敵前衛にダメージ パワー<br>鏡像カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>鏡像の刃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自陣前後交換<br>敵前衛にダメージ パワー<br>鏡像カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>鏡の支配</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵陣前後交換<br>鏡像カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>鏡面反転</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵陣前後交換<br>鏡像カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>鏡の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>鏡の呪縛</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>鏡面の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>鏡の癒し</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">鏡の術で自分のHPと味方のHPを入れ替える賢者。瀕死の前衛のHPと健全な後衛のHPを交換することで前衛を救出する戦法が強力。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">道化師フール</span><span class="syn-tag">影法師の人形師</span><span class="syn-tag">ホーリープリースト</span><span class="syn-tag">ダブルエッジ</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-fury-beast" role="dialog" aria-modal="true" aria-label="激昂の獣王">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('fury-beast')" aria-label="閉じる">✕</button>
+      <h2>激昂の獣王 <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 15</span>
+        <span class="stat"><span class="stat-label">パワー</span> 4</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 変身</span>
+        <span class="stat extra">変身後パワー+4</span><span class="stat extra">カウンター: 激昂カウンター(threshold)</span>
+      </div>
+      <p class="monster-desc">激昂が極まると野性の本能が覚醒。変身後は比類なき破壊力を誇る</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>野性の一撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>[通常時] 敵前衛にダメージ パワー<br>[通常時] 激昂カウンター+1 → 自身<br>[変身後] 敵前衛にダメージ パワー×2<br>[変身後] 激昂カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>怒りの爪</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>[通常時] 敵前衛にダメージ パワー<br>[通常時] 激昂カウンター+1 → 自身<br>[変身後] 敵前衛にダメージ パワー×2<br>[変身後] 激昂カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>獣の咆哮</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>[通常時] 敵前衛にダメージ 3<br>[通常時] 激昂カウンター+1 → 自身<br>[変身後] 敵前衛にダメージ 4<br>[変身後] 敵後衛にダメージ 4<br>[変身後] 激昂カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>暴走の刃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>[通常時] 敵前衛にダメージ パワー<br>[変身後] 敵前衛にダメージ パワー×2<br>[変身後] 敵後衛にダメージ 2</td>
+    </tr><tr>
+      <td>怒りの蓄積</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>[通常時] 自身に回復 3<br>[通常時] 激昂カウンター+2 → 自身<br>[変身後] 敵前衛にダメージ 6<br>[変身後] 激昂カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>変身の前兆</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>[通常時] 自身にパワー↑ 1<br>[通常時] 激昂カウンター+2 → 自身<br>[変身後] 味方前衛にパワー↑ 1<br>[変身後] 味方後衛にパワー↑ 1<br>[変身後] 敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>激昂の叫び</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>激昂カウンター+3 → 自身</td>
+    </tr><tr>
+      <td>怒りの解放</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>激昂カウンター+2 → 自身</td>
+    </tr><tr>
+      <td>野性の防御</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>獣の本能</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>獣の突撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>変身解放・獣王覚醒</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>[通常時] 自身に回復 1<br>[変身後] 敵前衛にダメージ パワー×1.5<br>[変身後] 敵後衛にダメージ パワー×1.5<br>[変身後] 味方前衛にパワー↑ 2<br>[変身後] 味方後衛にパワー↑ 2</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">激昂カウンターが溜まると変身して覚醒する変身獣王。通常時は控えめなスキルだが変身後は破壊的な火力に変貌。カウンターを素早く溜めて変身させることが目標。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">エールダンサー</span><span class="syn-tag">ウォーバード</span><span class="syn-tag">双剣の舞踏士</span><span class="syn-tag">龍吼の戦士</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-stone-wall" role="dialog" aria-modal="true" aria-label="石壁の守護者">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('stone-wall')" aria-label="閉じる">✕</button>
+      <h2>石壁の守護者 <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 23</span>
+        <span class="stat"><span class="stat-label">パワー</span> 2</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 守護</span>
+        <span class="stat extra">カウンター: 守護カウンター(threshold)</span>
+      </div>
+      <p class="monster-desc">揺るぎない防御で味方を守る。カウンターが溜まると全味方にアーマーを付与</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>石壁の防御</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自身にカバー<br>守護カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>岩盤の守り</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自身にカバー<br>守護カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>城壁の構え</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自身にカバー<br>守護カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>堅牢なる盾</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自身にカバー<br>守護カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>反撃の壁</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自身にカバー<br>[ブロック時] 敵前衛にダメージ パワー<br>守護カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>守護の反撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自身にカバー<br>[ブロック時] 敵前衛にダメージ パワー<br>守護カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>鉄壁付与</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にarmor(2, 2T)</td>
+    </tr><tr>
+      <td>守護の加護</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方後衛にarmor(2, 2T)</td>
+    </tr><tr>
+      <td>石壁の癒し</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>守護の回復</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>自身に回復 3</td>
+    </tr><tr>
+      <td>守護の鼓舞</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>石壁の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">圧倒的高HPで前線を封じる難攻不落の壁。防御スキルと高耐久で敵の攻撃を何ターンも受け止め、後衛を完全に守る。閾値発動で反撃も可能。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">ホーリープリースト</span><span class="syn-tag">バリアメイデン</span><span class="syn-tag">ルーンガードナー</span><span class="syn-tag">護法の双剣士</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-holy-light-healer" role="dialog" aria-modal="true" aria-label="聖光の癒し手">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('holy-light-healer')" aria-label="閉じる">✕</button>
+      <h2>聖光の癒し手 <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 13</span>
+        <span class="stat"><span class="stat-label">パワー</span> 2</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 聖光</span>
+        <span class="stat extra">カウンター: 聖光カウンター(self)</span>
+      </div>
+      <p class="monster-desc">聖なる光で傷を癒す。カウンターが溜まるほど回復量が増す</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>聖光の回復</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>味方前衛に回復 3<br>聖光カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>光の祝福</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>味方前衛に回復 3<br>聖光カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>聖なる光</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>味方前衛に回復 3<br>聖光カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>治癒の光</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>味方前衛に回復 4<br>聖光カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>全体回復</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 2<br>味方後衛に回復 2</td>
+    </tr><tr>
+      <td>聖光の恵み</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 2<br>味方後衛に回復 2</td>
+    </tr><tr>
+      <td>後衛の癒し</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方後衛に回復 3</td>
+    </tr><tr>
+      <td>聖光の一撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>聖光カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>光の剣撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>聖光カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>聖光の強化</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>光の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>自己回復</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>自身に回復 3</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">聖なる光で仲間を癒やす回復特化型。回復量が高く継続的にチームをサポートする。敵の妨害に対して回復でカバーし続ける持久戦法。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">アイアンゴーレム</span><span class="syn-tag">ガードビースト</span><span class="syn-tag">フェニックスウォリアー</span><span class="syn-tag">聖剣の勇者</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-flash-assassin" role="dialog" aria-modal="true" aria-label="閃光の刺客">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('flash-assassin')" aria-label="閉じる">✕</button>
+      <h2>閃光の刺客 <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 8</span>
+        <span class="stat"><span class="stat-label">パワー</span> 6</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 閃光</span>
+        <span class="stat extra">カウンター: 閃光カウンター(self)</span>
+      </div>
+      <p class="monster-desc">最高峰の攻撃力を誇る超攻撃型。HPは極めて低いが一撃の重さは群を抜く</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>閃光の一撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>閃光カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>光速斬り</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>閃光カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>瞬刃の閃き</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>閃光カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>閃光連撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>閃光カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>閃光暗殺</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵後衛にダメージ パワー<br>閃光カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>影の閃光</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵後衛にダメージ パワー<br>閃光カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>光の刃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>疾風の斬撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>閃光覚醒</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>閃光回避</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>瞬間防御</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>閃光必殺</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ 6</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">電光石火の一撃で敵を仕留める速攻型。低HPだが最高クラスのパワーで一撃必殺を狙う。前衛に出して早期決着を目指す戦法が基本。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">エールダンサー</span><span class="syn-tag">ウォーバード</span><span class="syn-tag">シャドウアサシン</span><span class="syn-tag">ソウルリーパー</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-venom-mist" role="dialog" aria-modal="true" aria-label="毒霧の術師">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('venom-mist')" aria-label="閉じる">✕</button>
+      <h2>毒霧の術師 <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 11</span>
+        <span class="stat"><span class="stat-label">パワー</span> 3</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 毒霧</span>
+        <span class="stat extra">カウンター: 毒霧カウンター(self)</span>
+      </div>
+      <p class="monster-desc">毒・嵐・呪いを重ねがけする複合デバッファー。状態異常を積み重ねて敵を蝕む</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>猛毒の霧</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にpoison(1, 3T)<br>毒霧カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>毒霧散布</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にpoison(2, 2T)<br>毒霧カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>猛毒の一撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>敵前衛にpoison(1, 2T)<br>毒霧カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>毒嵐の霧</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にstormwind(2, 2T)<br>毒霧カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>霧の嵐</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にstormwind(1, 3T)<br>毒霧カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>呪いの霧</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にcurse(1, 3T)<br>毒霧カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>濃霧の呪縛</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にcurse(2, 2T)<br>毒霧カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>毒霧弱体</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>霧の侵食</td>
+      <td><span class="type-tag" style="background:#888">debuff</span></td>
+      <td>敵前衛にパワー↓ 1 [遅延]</td>
+    </tr><tr>
+      <td>毒霧の一撃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>毒霧の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>霧の回復</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>自身に回復 3</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">毒霧で広範囲に持続ダメージを与える毒使い。毒の蓄積効果で全体をジワジワ削る。防御が高くダメージを与えにくい相手に特に有効。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">ポイズンドクター</span><span class="syn-tag">カースシャーマン</span><span class="syn-tag">ストームウォーロック</span><span class="syn-tag">リバーサー</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-guardian-swordsman" role="dialog" aria-modal="true" aria-label="護法の双剣士">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('guardian-swordsman')" aria-label="閉じる">✕</button>
+      <h2>護法の双剣士 <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 15</span>
+        <span class="stat"><span class="stat-label">パワー</span> 4</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 護法</span>
+        <span class="stat extra">カウンター: 護法カウンター(threshold)</span>
+      </div>
+      <p class="monster-desc">攻守一体の均衡型。閾値達成で味方を強化しながら自身も戦う</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>護法の斬撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>護法カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>双剣連斬</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>護法カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>護法の突き</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>護法カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>護法の防御</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自身にカバー<br>[ブロック時] 敵前衛にダメージ パワー<br>護法カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>双剣の盾</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>自身にカバー<br>[ブロック時] 敵前衛にダメージ パワー<br>護法カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>堅固な守り</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>護法の癒し</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方前衛に回復 3</td>
+    </tr><tr>
+      <td>双剣の回復</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>味方後衛に回復 3</td>
+    </tr><tr>
+      <td>護法強化</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>護法の鼓舞</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>味方前衛にパワー↑ 1</td>
+    </tr><tr>
+      <td>護法必殺</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>護法の裏刃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵後衛にダメージ パワー</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">仲間を守りながら反撃する護衛剣士。防御と攻撃を両立し、ブロック時の反撃が強力。閾値発動で守護バリアを展開して味方全体を守る。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">ホーリープリースト</span><span class="syn-tag">フェニックスウォリアー</span><span class="syn-tag">ルーンガードナー</span><span class="syn-tag">石壁の守護者</span></div>
+    </div>
+  </div>
+
+  <div class="modal" id="modal-dragon-warrior" role="dialog" aria-modal="true" aria-label="龍吼の戦士">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal('dragon-warrior')" aria-label="閉じる">✕</button>
+      <h2>龍吼の戦士 <span class="badge badge-both">両用</span></h2>
+      <div class="stat-row">
+        <span class="stat"><span class="stat-label">HP</span> 16</span>
+        <span class="stat"><span class="stat-label">パワー</span> 5</span>
+        <span class="stat"><span class="stat-label">カテゴリ</span> 龍吼</span>
+        <span class="stat extra">カウンター: 龍吼カウンター(self)</span>
+      </div>
+      <p class="monster-desc">龍の咆哮で力を解放する高パワー型。カウンターで更なる強化を積み上げる</p>
+      <h3>スキルカード一覧</h3>
+      <table class="card-table"><thead><tr><th>カード名</th><th>種類</th><th>効果</th></tr></thead><tbody><tr>
+      <td>龍吼の一撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>龍吼カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>龍の爪撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>龍吼カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>龍炎斬り</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>龍吼カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>龍の咆哮</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵前衛にダメージ パワー<br>龍吼カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>龍の追撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵後衛にダメージ パワー<br>龍吼カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>龍炎の追撃</td>
+      <td><span class="type-tag" style="background:#888">combo</span></td>
+      <td>敵後衛にダメージ パワー<br>龍吼カウンター+1 → 自身</td>
+    </tr><tr>
+      <td>龍の剣閃</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>龍吼激震</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ パワー</td>
+    </tr><tr>
+      <td>龍の覚醒</td>
+      <td><span class="type-tag" style="background:#888">buff</span></td>
+      <td>自身にパワー↑ 1</td>
+    </tr><tr>
+      <td>龍の再生</td>
+      <td><span class="type-tag" style="background:#888">heal</span></td>
+      <td>自身に回復 3</td>
+    </tr><tr>
+      <td>龍鱗の盾</td>
+      <td><span class="type-tag" style="background:#3498db">defense</span></td>
+      <td>自身にカバー</td>
+    </tr><tr>
+      <td>龍吼必殺</td>
+      <td><span class="type-tag" style="background:#e74c3c">attack</span></td>
+      <td>敵前衛にダメージ 7</td>
+    </tr></tbody></table>
+      <h3>戦法</h3>
+      <p class="tactics-text">龍の力でパワーを高めながら猛攻を仕掛ける龍戦士。パワーアップを自己強化に使いながら敵を圧倒する。閾値発動で龍吼が炸裂する。</p>
+      <h3>相性のいいモンスター</h3>
+      <div class="synergy-list"><span class="syn-tag">エールダンサー</span><span class="syn-tag">ウォーバード</span><span class="syn-tag">双剣の舞踏士</span><span class="syn-tag">激昂の獣王</span></div>
+    </div>
+  </div>
+
+<script>
+  let currentFilter = 'all';
+
+  function setFilter(role, btn) {
+    currentFilter = role;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filterMonsters();
+  }
+
+  function filterMonsters() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    const cards = document.querySelectorAll('.monster-card');
+    let visible = 0;
+    cards.forEach(card => {
+      const roleMatch = currentFilter === 'all' || card.dataset.role === currentFilter;
+      const textMatch = !q || card.dataset.name.includes(q) || card.dataset.category.includes(q) || card.dataset.id.includes(q);
+      const show = roleMatch && textMatch;
+      card.classList.toggle('hidden', !show);
+      if (show) visible++;
+    });
+    document.getElementById('countDisplay').textContent = visible + '体表示中';
+  }
+
+  function openModal(id) {
+    const modal = document.getElementById('modal-' + id);
+    if (modal) {
+      modal.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+  }
+
+  function closeModal(id) {
+    const modal = document.getElementById('modal-' + id);
+    if (modal) {
+      modal.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+  }
+
+  // Close on backdrop click
+  document.querySelectorAll('.modal').forEach(modal => {
+    modal.addEventListener('click', e => {
+      if (e.target === modal) closeModal(modal.id.replace('modal-', ''));
+    });
+  });
+
+  // Keyboard support
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal.open').forEach(m => {
+        m.classList.remove('open');
+        document.body.style.overflow = '';
+      });
+    }
+  });
+  document.querySelectorAll('.monster-card').forEach(card => {
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openModal(card.dataset.id);
+      }
+    });
+  });
+</script>
+</body>
+</html>
