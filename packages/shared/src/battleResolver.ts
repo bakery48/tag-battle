@@ -652,6 +652,35 @@ export function resolveTurn(
         }
       }
 
+      // 石壁の守護者: threshold=3 → apply armor(3,2t) to all living allies
+      if (m.id === 'stone-wall' && m.counter && m.counter.type === 'threshold') {
+        const threshold = m.counter.threshold ?? 3;
+        if (m.counter.value >= threshold) {
+          for (const ally of [p.front, p.rear]) {
+            if (!ally.isDead) {
+              applyStatusToMonster(ally, 'armor', 3, 2, m.id);
+            }
+          }
+          m.counter.value = 0;
+          addEvent(events, 'counterTrigger', m.name, 0, `${m.name}の守護発動！全味方にアーマー+3を付与！`);
+        }
+      }
+
+      // 護法の双剣士: threshold=3 → ally_front armor(2,2t) + powerUp+1
+      if (m.id === 'guardian-swordsman' && m.counter && m.counter.type === 'threshold') {
+        const threshold = m.counter.threshold ?? 3;
+        if (m.counter.value >= threshold) {
+          if (!p.front.isDead) {
+            applyStatusToMonster(p.front, 'armor', 2, 2, m.id);
+            p.front.basePower += 1;
+            recalcPower(p.front);
+            addEvent(events, 'powerChange', p.front.name, p.front.power, `${m.name}の護法発動！${p.front.name}にアーマー+攻撃力+1！`);
+          }
+          m.counter.value = 0;
+          addEvent(events, 'counterTrigger', m.name, 0, `${m.name}の護法カウンターが発動した！`);
+        }
+      }
+
       // タイムメイジ: threshold=2 → swap deck[t+1] with deck[t+2]
       if (m.id === 'time-mage' && m.counter && m.counter.type === 'threshold') {
         const threshold = m.counter.threshold ?? 2;

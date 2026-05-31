@@ -36,6 +36,12 @@ export { shadowPuppeteerCards } from './shadow-puppeteer.js';
 export { stormDancerCards } from './storm-dancer.js';
 export { mirrorSageCards } from './mirror-sage.js';
 export { furyBeastCards } from './fury-beast.js';
+export { stoneWallCards } from './stone-wall.js';
+export { holyLightHealerCards } from './holy-light-healer.js';
+export { flashAssassinCards } from './flash-assassin.js';
+export { venomMistCards } from './venom-mist.js';
+export { guardianSwordsmanCards } from './guardian-swordsman.js';
+export { dragonWarriorCards } from './dragon-warrior.js';
 
 import { ironGolemCards } from './iron-golem.js';
 import { berserkCards } from './berserk.js';
@@ -75,6 +81,12 @@ import { shadowPuppeteerCards } from './shadow-puppeteer.js';
 import { stormDancerCards } from './storm-dancer.js';
 import { mirrorSageCards } from './mirror-sage.js';
 import { furyBeastCards } from './fury-beast.js';
+import { stoneWallCards } from './stone-wall.js';
+import { holyLightHealerCards } from './holy-light-healer.js';
+import { flashAssassinCards } from './flash-assassin.js';
+import { venomMistCards } from './venom-mist.js';
+import { guardianSwordsmanCards } from './guardian-swordsman.js';
+import { dragonWarriorCards } from './dragon-warrior.js';
 import type { CardState } from '../types.js';
 
 export const ALL_CARDS: CardState[] = [
@@ -116,6 +128,12 @@ export const ALL_CARDS: CardState[] = [
   ...stormDancerCards,
   ...mirrorSageCards,
   ...furyBeastCards,
+  ...stoneWallCards,
+  ...holyLightHealerCards,
+  ...flashAssassinCards,
+  ...venomMistCards,
+  ...guardianSwordsmanCards,
+  ...dragonWarriorCards,
 ];
 
 export const CARDS_BY_MONSTER: Record<string, CardState[]> = {
@@ -157,6 +175,12 @@ export const CARDS_BY_MONSTER: Record<string, CardState[]> = {
   'storm-dancer': stormDancerCards,
   'mirror-sage': mirrorSageCards,
   'fury-beast': furyBeastCards,
+  'stone-wall': stoneWallCards,
+  'holy-light-healer': holyLightHealerCards,
+  'flash-assassin': flashAssassinCards,
+  'venom-mist': venomMistCards,
+  'guardian-swordsman': guardianSwordsmanCards,
+  'dragon-warrior': dragonWarriorCards,
 };
 
 export function getCardsForMonster(monsterId: string): CardState[] {
