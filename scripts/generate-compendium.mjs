@@ -313,6 +313,13 @@ function buildMonsterCards(id) {
   return html;
 }
 
+function fmtCounterType(cd) {
+  if (cd.type === 'self') return `カウンターが溜まるほどパワーが上昇する`;
+  if (cd.type === 'apply') return `カウンターが溜まると付与する状態異常が強化される`;
+  if (cd.type === 'threshold') return `カウンターが${cd.threshold}に達すると特殊効果が発動する`;
+  return cd.type;
+}
+
 function buildModal(m) {
   const info = INFO[m.id] ?? { tactics: '情報なし', synergies: [] };
   const synHtml = info.synergies.map(sid => {
@@ -323,8 +330,14 @@ function buildModal(m) {
   const extra = [];
   if (m.hpScaledPower) extra.push('HP比例パワー');
   if (m.transformPowerBonus) extra.push(`変身後パワー+${m.transformPowerBonus}`);
-  if (m.counterDef) extra.push(`カウンター: ${m.counterDef.name}(${m.counterDef.type})`);
   if (m.canRevive) extra.push('復活可');
+
+  const counterHtml = m.counterDef ? `
+      <h3>カウンター</h3>
+      <div class="counter-block">
+        <span class="counter-name">${escHtml(m.counterDef.name)}</span>
+        <span class="counter-desc">${escHtml(fmtCounterType(m.counterDef))}</span>
+      </div>` : '';
 
   return `
   <div class="modal" id="modal-${escHtml(m.id)}" role="dialog" aria-modal="true" aria-label="${escHtml(m.name)}">
@@ -338,6 +351,7 @@ function buildModal(m) {
         ${extra.map(e => `<span class="stat extra">${escHtml(e)}</span>`).join('')}
       </div>
       <p class="monster-desc">${escHtml(m.description)}</p>
+      ${counterHtml}
       <h3>スキルカード一覧</h3>
       ${buildMonsterCards(m.id)}
       <h3>戦法</h3>
@@ -575,6 +589,23 @@ const html = `<!DOCTYPE html>
   }
 
   .tactics-text { color: var(--text); font-size: 0.9rem; line-height: 1.7; }
+
+  .counter-block {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    background: rgba(255,165,0,0.08);
+    border: 1px solid rgba(255,165,0,0.25);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .counter-name {
+    font-weight: bold;
+    color: #ffa500;
+    white-space: nowrap;
+    font-size: 0.9rem;
+  }
+  .counter-desc { color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
 
   .synergy-list { display: flex; flex-wrap: wrap; gap: 8px; }
   .syn-tag {
