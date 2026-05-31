@@ -30,7 +30,7 @@ export const MONSTERS: MonsterMaster[] = [
     power: 4,
     category: '攻撃',
     canRevive: false,
-    counterDef: { name: '吸血カウンター', type: 'self' },
+    counterDef: { name: '吸血カウンター', type: 'lifesteal' },
     description: '敵の血を吸って強くなる吸血鬼の王。',
   },
   {
@@ -51,7 +51,7 @@ export const MONSTERS: MonsterMaster[] = [
     power: 6,
     category: '特殊',
     canRevive: false,
-    counterDef: { name: '業炎カウンター', type: 'self' },
+    counterDef: { name: '業炎カウンター', type: 'burn' },
     description: '自らのHPを代償に強力な攻撃を放つ死の騎士。',
   },
   {
@@ -72,7 +72,7 @@ export const MONSTERS: MonsterMaster[] = [
     power: 4,
     category: '特殊',
     canRevive: true,
-    counterDef: { name: '炎鳥カウンター', type: 'self' },
+    counterDef: { name: '炎鳥カウンター', type: 'reviveBonus' },
     description: '死から蘇る不死鳥の戦士。',
   },
   {
@@ -104,7 +104,7 @@ export const MONSTERS: MonsterMaster[] = [
     power: 3,
     category: '特殊',
     canRevive: false,
-    counterDef: { name: '連鎖カウンター', type: 'self' },
+    counterDef: { name: '連鎖カウンター', type: 'stack' },
     description: '連続攻撃で力を蓄える連鎖の兵士。',
   },
   // Rear monsters
@@ -157,7 +157,7 @@ export const MONSTERS: MonsterMaster[] = [
     power: 2,
     category: '補助',
     canRevive: false,
-    counterDef: { name: '死霊カウンター', type: 'self' },
+    counterDef: { name: '死霊カウンター', type: 'reviveBonus' },
     description: '死者を蘇らせる死霊術師。',
   },
   {
@@ -278,7 +278,7 @@ export const MONSTERS: MonsterMaster[] = [
     power: 2,
     category: '補助',
     canRevive: false,
-    counterDef: { name: '魔盾カウンター', type: 'self' },
+    counterDef: { name: '魔盾カウンター', type: 'armorBonus' },
     description: 'シールドを味方に付与。カウンターが積まれるほど強固なシールドを展開',
   },
   {
@@ -356,7 +356,7 @@ export const MONSTERS: MonsterMaster[] = [
     power: 3,
     category: '勇者',
     canRevive: false,
-    counterDef: { name: '勇気カウンター', type: 'self' },
+    counterDef: { name: '勇気カウンター', type: 'healOnAttack' },
     description: '突出した特徴はないが、どの位置でも安定感抜群の頼れる勇者',
   },
   // ── 4 swap-mechanic dual-role monsters ──
@@ -436,7 +436,7 @@ export const MONSTERS: MonsterMaster[] = [
     power: 2,
     category: '聖光',
     canRevive: false,
-    counterDef: { name: '聖光カウンター', type: 'self' },
+    counterDef: { name: '聖光カウンター', type: 'healBonus' },
     description: '聖なる光で傷を癒す。カウンターが溜まるほど回復量が増す',
   },
   {

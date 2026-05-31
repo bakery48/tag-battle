@@ -172,10 +172,12 @@ describe('battleResolver', () => {
     expect(log.events.some((e) => e.type === 'stormwind')).toBe(true);
   });
 
-  it('6. Phoenix: revive prevents loss, 炎鳥 counter += 5', () => {
+  it('6. Phoenix: revive uses 炎鳥カウンター as HP bonus, counter resets', () => {
     const state = makeState('phoenix-warrior', 'holy-priest', 'iron-golem', 'holy-priest');
     const phoenix = state.players[0].front;
-    phoenix.hp = 1; // Nearly dead
+    phoenix.hp = 1;
+    // Pre-stack counter to 3 to verify HP bonus on revive
+    if (phoenix.counter) phoenix.counter.value = 3;
 
     const bigAttack: CardState = {
       id: 'big1', monsterId: 'iron-golem', name: 'Big Attack', description: '', type: 'attack',
@@ -190,8 +192,10 @@ describe('battleResolver', () => {
 
     const revivedPhoenix = nextState.players[0].front;
     expect(revivedPhoenix.isDead).toBe(false);
-    expect(revivedPhoenix.hp).toBeGreaterThan(0);
-    expect(revivedPhoenix.counter?.value).toBe(5);
+    // HP = floor(16/2) + counter bonus 3 = 11
+    expect(revivedPhoenix.hp).toBe(11);
+    // Counter resets after revive
+    expect(revivedPhoenix.counter?.value).toBe(0);
     expect(log.events.some((e) => e.type === 'revive')).toBe(true);
     // Game should NOT be over
     expect(nextState.result).toBeUndefined();

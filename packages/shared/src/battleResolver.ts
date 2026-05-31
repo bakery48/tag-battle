@@ -146,6 +146,7 @@ interface ResolvedEffect {
   actingPlayerIdx: 0 | 1;
   counterValue: number;
   nullified: boolean;
+  actor: MonsterState;
 }
 
 function applyEffect(
@@ -166,10 +167,20 @@ function applyEffect(
     switch (effect.action) {
       case 'damage': {
         applyHpDamage(tgt, val, events, 'card');
+        // Lifesteal: actor heals self by counter.value on each damage hit
+        if (re.actor.counter?.type === 'lifesteal' && val > 0 && re.actor.counter.value > 0) {
+          applyHeal(re.actor, re.actor.counter.value, events);
+        }
+        // HealOnAttack: actor heals ally_front by counter.value on each damage hit
+        if (re.actor.counter?.type === 'healOnAttack' && val > 0 && re.actor.counter.value > 0) {
+          const ally = state.players[re.actingPlayerIdx].front;
+          if (!ally.isDead) applyHeal(ally, re.actor.counter.value, events);
+        }
         break;
       }
       case 'heal': {
-        applyHeal(tgt, val, events);
+        const healVal = val + (re.actor.counter?.type === 'healBonus' ? (re.actor.counter.value) : 0);
+        applyHeal(tgt, healVal, events);
         break;
       }
       case 'powerUp': {
@@ -207,8 +218,12 @@ function applyEffect(
         if (effect.counterName) {
           const parsed = parseStatusCounterName(effect.counterName);
           if (parsed) {
-            applyStatusToMonster(tgt, parsed.type, val, parsed.duration, 'card');
-            addEvent(events, 'counterChange', tgt.name, val, `${tgt.name}に${parsed.type}(${val})が付与された`);
+            let statusVal = val;
+            if (parsed.type === 'armor' && re.actor.counter?.type === 'armorBonus') {
+              statusVal += re.actor.counter.value;
+            }
+            applyStatusToMonster(tgt, parsed.type, statusVal, parsed.duration, 'card');
+            addEvent(events, 'counterChange', tgt.name, statusVal, `${tgt.name}に${parsed.type}(${statusVal})が付与された`);
             break;
           }
         }
@@ -355,6 +370,7 @@ export function resolveTurn(
         actingPlayerIdx: pi,
         counterValue,
         nullified: false,
+        actor,
       });
     }
   }
@@ -698,6 +714,19 @@ export function resolveTurn(
     }
   }
 
+  // ── Phase 5b-i: Burn aura (death-knight) ──
+  for (let pi = 0 as 0 | 1; pi <= 1; pi++) {
+    const p = s.players[pi];
+    for (const m of [p.front, p.rear]) {
+      if (m.isDead || !m.counter || m.counter.type !== 'burn' || m.counter.value <= 0) continue;
+      const opp = s.players[pi === 0 ? 1 : 0];
+      const burnTarget = opp.front.isDead ? opp.rear : opp.front;
+      if (!burnTarget.isDead) {
+        applyHpDamage(burnTarget, m.counter.value, events, '業炎');
+      }
+    }
+  }
+
   // ── Phase 5b: Apply-type end-of-turn damage (curse, poison) ──
   for (let pi = 0 as 0 | 1; pi <= 1; pi++) {
     const p = s.players[pi];
@@ -731,13 +760,12 @@ export function resolveTurn(
     // Phoenix revive
     if (m.id === 'phoenix-warrior' && m.canRevive && !m.hasRevived) {
       m.isDead = false;
-      m.hp = Math.max(1, Math.floor(m.maxHp / 2));
+      const reviveBonus = m.counter?.type === 'reviveBonus' ? m.counter.value : 0;
+      m.hp = Math.min(m.maxHp, Math.max(1, Math.floor(m.maxHp / 2) + reviveBonus));
       m.hasRevived = true;
-      if (m.counter) {
-        m.counter.value += 5;
-      }
+      if (m.counter) m.counter.value = 0;
       recalcPower(m);
-      addEvent(events, 'revive', m.name, m.hp, `${m.name}が炎から蘇った！`);
+      addEvent(events, 'revive', m.name, m.hp, `${m.name}が炎から蘇った！HP=${m.hp}`);
     }
 
     // HolyPriest revive: handled by card play 'revive' action
@@ -750,7 +778,7 @@ export function resolveTurn(
       const baseHp = Math.max(1, Math.floor(m.maxHp / 2));
       // Necromancer bonus: add 死霊カウンター value
       const necro = p.rear;
-      const necroBonus = necro.id === 'necromancer' && necro.counter ? necro.counter.value : 0;
+      const necroBonus = necro.counter?.type === 'reviveBonus' ? necro.counter.value : 0;
       m.hp = Math.min(m.maxHp, baseHp + necroBonus);
       addEvent(events, 'revive', m.name, m.hp, `${m.name}が蘇生された！HP=${m.hp}`);
     }

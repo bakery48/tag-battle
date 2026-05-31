@@ -9,19 +9,19 @@ const COUNTER = '吸血カウンター';
 
 export const vampireLordCards: CardState[] = [
   // Combo x4: attack + 吸血 counter
-  makeCard(MID, '吸血牙', '攻撃し、吸血カウンター+1。', 'combo', [
+  makeCard(MID, '吸血牙', '攻撃し、吸血カウンター+1。(攻撃時に吸血値分HP回復)', 'combo', [
     attackEffect(powerVal()),
     counterAddEffect(COUNTER, 1, 'self'),
   ]),
-  makeCard(MID, '暗黒の一撃', '攻撃し、吸血カウンター+1。', 'combo', [
+  makeCard(MID, '暗黒の一撃', '攻撃し、吸血カウンター+1。(攻撃時に吸血値分HP回復)', 'combo', [
     attackEffect(powerVal()),
     counterAddEffect(COUNTER, 1, 'self'),
   ]),
-  makeCard(MID, '血の渇望', '攻撃し、吸血カウンター+1。', 'combo', [
+  makeCard(MID, '血の渇望', '攻撃し、吸血カウンター+1。(攻撃時に吸血値分HP回復)', 'combo', [
     attackEffect(powerVal()),
     counterAddEffect(COUNTER, 1, 'self'),
   ]),
-  makeCard(MID, '死の接吻', '攻撃し、吸血カウンター+1。', 'combo', [
+  makeCard(MID, '死の接吻', '攻撃し、吸血カウンター+1。(攻撃時に吸血値分HP回復)', 'combo', [
     attackEffect(powerVal()),
     counterAddEffect(COUNTER, 1, 'self'),
   ]),
