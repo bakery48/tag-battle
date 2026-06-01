@@ -325,6 +325,7 @@ function fmtCounterType(cd) {
   if (cd.type === 'healOnAttack') return '攻撃時に味方前衛をカウンター値分回復する';
   if (cd.type === 'armorBonus') return 'アーマー付与時にカウンター値分のアーマーを追加する';
   if (cd.type === 'stormBonus') return '嵐風付与時のダメージ値がカウンター値分増加する';
+  if (cd.type === 'curseBonus') return '呪い付与時のダメージ値がカウンター値分増加する';
   return cd.type;
 }
 

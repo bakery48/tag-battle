@@ -225,6 +225,9 @@ function applyEffect(
             if (parsed.type === 'stormwind' && re.actor.counter?.type === 'stormBonus') {
               statusVal += re.actor.counter.value;
             }
+            if (parsed.type === 'curse' && re.actor.counter?.type === 'curseBonus') {
+              statusVal += re.actor.counter.value;
+            }
             applyStatusToMonster(tgt, parsed.type, statusVal, parsed.duration, 'card');
             addEvent(events, 'counterChange', tgt.name, statusVal, `${tgt.name}に${parsed.type}(${statusVal})が付与された`);
             break;
