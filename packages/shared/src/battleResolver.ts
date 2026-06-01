@@ -1,6 +1,6 @@
 import type {
   GameState, PlayerState, MonsterState, CardState, CardEffect,
-  EffectValue, TurnEvent, TurnLog, StatusEffect, CounterInfo,
+  EffectValue, TurnEvent, TurnLog, CounterInfo,
   MonsterMaster,
 } from './types.js';
 
@@ -41,8 +41,8 @@ function resolveTarget(
     case 'enemy_front':
       return opp.front.isDead ? opp.rear : opp.front;
     case 'enemy_rear': {
-      // Check defense: if opp.front has 'defense' status and is alive → intercept
-      const hasCover = !opp.front.isDead && opp.front.statusEffects.some((s) => s.type === 'defense');
+      // Check defense: if opp.front has 'defense' debuff and is alive → intercept
+      const hasCover = !opp.front.isDead && (opp.front.debuffs.defense ?? 0) > 0;
       return hasCover ? opp.front : opp.rear;
     }
     case 'enemy_all': return [opp.front, opp.rear];
@@ -61,9 +61,11 @@ function recalcPower(m: MonsterState): void {
     power = m.basePower + Math.floor(ratio * 6);
   } else {
     power = m.basePower;
-    for (const s of m.statusEffects) {
-      if (s.type === 'powerUp') power += s.value;
-      if (s.type === 'powerDown') power -= s.value;
+    if (m.debuffs.powerUp) power += m.debuffs.powerUp;
+    if (m.debuffs.powerDown) power -= m.debuffs.powerDown;
+    // reverse flips powerUp bonus to penalty
+    if (m.debuffs.reverse && m.debuffs.powerUp) {
+      power -= 2 * m.debuffs.powerUp; // subtract what was added and negate
     }
     if (m.counter) {
       const c = m.counter;
@@ -82,16 +84,12 @@ function recalcPower(m: MonsterState): void {
 function applyHpDamage(m: MonsterState, dmg: number, events: TurnEvent[], source: string): void {
   if (m.isDead) return;
   let raw = Math.max(0, dmg);
-  // Armor absorption (armor status reduces incoming damage)
-  const armorIdx = m.statusEffects.findIndex((se) => se.type === 'armor');
-  if (armorIdx !== -1 && raw > 0) {
-    const armor = m.statusEffects[armorIdx];
-    const absorbed = Math.min(armor.value, raw);
-    armor.value -= absorbed;
+  // Armor absorption (armor debuff reduces incoming damage)
+  if (m.debuffs.armor && m.debuffs.armor > 0 && raw > 0) {
+    const absorbed = Math.min(m.debuffs.armor, raw);
+    m.debuffs.armor -= absorbed;
     raw -= absorbed;
-    if (armor.value <= 0) {
-      m.statusEffects.splice(armorIdx, 1);
-    }
+    if (m.debuffs.armor <= 0) delete m.debuffs.armor;
   }
   const actual = raw;
   m.hp = Math.max(0, m.hp - actual);
@@ -106,26 +104,18 @@ function applyHeal(m: MonsterState, amount: number, events: TurnEvent[]): void {
   addEvent(events, 'heal', m.name, healed, `${m.name}のHPが${healed}回復した`);
 }
 
-function parseStatusCounterName(counterName: string): { type: string; duration: number } | null {
+function parseStatusCounterName(counterName: string): { type: string } | null {
   if (!counterName.startsWith('__status__')) return null;
   const parts = counterName.split('__');
   // parts: ['', 'status', type, duration]
   if (parts.length < 4) return null;
   const type = parts[2];
-  const duration = parseInt(parts[3], 10);
-  if (isNaN(duration) || !type) return null;
-  return { type, duration };
+  if (!type) return null;
+  return { type };
 }
 
-function applyStatusToMonster(m: MonsterState, statusType: string, statusValue: number, duration: number, source: string): void {
-  // Stack or add status
-  const existing = m.statusEffects.find((s) => s.type === statusType && s.source === source);
-  if (existing) {
-    existing.value += statusValue;
-    existing.duration = Math.max(existing.duration, duration);
-  } else {
-    m.statusEffects.push({ type: statusType, value: statusValue, duration, source });
-  }
+function addDebuff(m: MonsterState, type: string, amount: number): void {
+  m.debuffs[type] = (m.debuffs[type] ?? 0) + amount;
 }
 
 function incrementCounter(m: MonsterState, counterName: string, amount: number, events: TurnEvent[]): void {
@@ -184,18 +174,18 @@ function applyEffect(
         break;
       }
       case 'powerUp': {
-        // Check if target has 'reverse' status → flip to powerDown
-        const hasReverse = tgt.statusEffects.some((se) => se.type === 'reverse');
+        // Check if target has 'reverse' debuff → flip to powerDown
+        const hasReverse = (tgt.debuffs.reverse ?? 0) > 0;
         if (hasReverse) {
           if (effect.delayed) {
-            tgt.statusEffects.push({ type: 'powerDown', value: val, duration: 2, source: 'reversed' });
+            addDebuff(tgt, 'powerDown', val);
           } else {
             tgt.basePower = Math.max(0, tgt.basePower - val);
             recalcPower(tgt);
             addEvent(events, 'powerChange', tgt.name, tgt.power, `リバーサー効果！${tgt.name}のバフが反転した (攻撃力=${tgt.power})`);
           }
         } else if (effect.delayed) {
-          tgt.statusEffects.push({ type: 'powerUp', value: val, duration: 2, source: 'delayed' });
+          addDebuff(tgt, 'powerUp', val);
         } else {
           tgt.basePower += val;
           recalcPower(tgt);
@@ -205,7 +195,7 @@ function applyEffect(
       }
       case 'powerDown': {
         if (effect.delayed) {
-          tgt.statusEffects.push({ type: 'powerDown', value: val, duration: 2, source: 'delayed' });
+          addDebuff(tgt, 'powerDown', val);
         } else {
           tgt.basePower = Math.max(0, tgt.basePower - val);
           recalcPower(tgt);
@@ -228,7 +218,7 @@ function applyEffect(
             if (parsed.type === 'curse' && re.actor.counter?.type === 'curseBonus') {
               statusVal += re.actor.counter.value;
             }
-            applyStatusToMonster(tgt, parsed.type, statusVal, parsed.duration, 'card');
+            addDebuff(tgt, parsed.type, statusVal);
             addEvent(events, 'counterChange', tgt.name, statusVal, `${tgt.name}に${parsed.type}(${statusVal})が付与された`);
             break;
           }
@@ -250,16 +240,15 @@ function applyEffect(
       }
       case 'defense': {
         if (val === 0) break; // plain defense (val=0 means it's a defense card, handled by phase 2)
-        // Apply defense status for 1 turn
-        applyStatusToMonster(tgt, 'defense', 1, val, 'card');
+        // Apply defense debuff for 1 turn
+        addDebuff(tgt, 'defense', 1);
         addEvent(events, 'counterChange', tgt.name, 1, `${tgt.name}が防御状態になった`);
         break;
       }
       case 'applyStatus': {
         if (!effect.statusType) break;
         const sv = effect.statusValue ?? 1;
-        const sd = effect.statusDuration ?? 2;
-        applyStatusToMonster(tgt, effect.statusType, sv, sd, 'card');
+        addDebuff(tgt, effect.statusType, sv);
         addEvent(events, 'counterChange', tgt.name, sv, `${tgt.name}に${effect.statusType}(${sv})を付与`);
         break;
       }
@@ -322,21 +311,18 @@ export function resolveTurn(
   const cards: [CardState, CardState] = [p1Card, p2Card];
 
   // ── Phase 0: Stormwind pre-effect check ──
-  for (let pi = 0 as 0 | 1; pi <= 1; pi++) {
-    const p = s.players[pi];
-    const allMonsters: MonsterState[] = [p.front, p.rear];
-    for (const m of allMonsters) {
-      if (m.isDead) continue;
-      const swIdx = m.statusEffects.findIndex((se) => se.type === 'stormwind');
-      if (swIdx === -1) continue;
-      const sw = m.statusEffects[swIdx];
-      applyHpDamage(m, sw.value, events, 'stormwind');
-      addEvent(events, 'stormwind', m.name, sw.value, `${m.name}が嵐風で${sw.value}ダメージを受けた`);
-      sw.duration--;
-      if (sw.duration <= 0) {
-        m.statusEffects.splice(swIdx, 1);
-      }
-    }
+  const allMonstersPhase0: MonsterState[] = [
+    s.players[0].front, s.players[0].rear,
+    s.players[1].front, s.players[1].rear,
+  ];
+  for (const m of allMonstersPhase0) {
+    if (m.isDead) continue;
+    const sw = m.debuffs.stormwind ?? 0;
+    if (sw <= 0) continue;
+    applyHpDamage(m, sw, events, 'stormwind');
+    addEvent(events, 'stormwind', m.name, sw, `${m.name}が嵐風で${sw}ダメージを受けた`);
+    m.debuffs.stormwind = sw - 1;
+    if (m.debuffs.stormwind <= 0) delete m.debuffs.stormwind;
   }
 
   // ── Phase 1: Collect card effects ──
@@ -437,16 +423,16 @@ export function resolveTurn(
       // Only apply if NOT nullified
       if (!re.nullified) applyEffect(re, s, events);
     } else if (re.effect.delayed) {
-      // Delayed effects: add status with duration 2
+      // Delayed effects: add debuffs
       const targets = resolveTarget(re.effect.target, s, re.actingPlayerIdx);
       const targetArr: MonsterState[] = Array.isArray(targets) ? targets : [targets];
       const val = resolveValue(re.effect.value, re.actingPower, re.counterValue);
       for (const tgt of targetArr) {
         if (tgt.isDead) continue;
         if (re.effect.action === 'powerDown') {
-          tgt.statusEffects.push({ type: 'powerDown', value: val, duration: 2, source: 'delayed' });
+          addDebuff(tgt, 'powerDown', val);
         } else if (re.effect.action === 'powerUp') {
-          tgt.statusEffects.push({ type: 'powerUp', value: val, duration: 2, source: 'delayed' });
+          addDebuff(tgt, 'powerUp', val);
         }
       }
     } else {
@@ -553,13 +539,13 @@ export function resolveTurn(
         }
       }
 
-      // ルーンガードナー: threshold=4 → apply armor(2,2) to all living allies
+      // ルーンガードナー: threshold=4 → apply armor(2) to all living allies
       if (m.id === 'rune-guardian' && m.counter && m.counter.type === 'threshold') {
         const threshold = m.counter.threshold ?? 4;
         if (m.counter.value >= threshold) {
           for (const ally of [p.front, p.rear]) {
             if (!ally.isDead) {
-              applyStatusToMonster(ally, 'armor', 2, 2, m.id);
+              addDebuff(ally, 'armor', 2);
             }
           }
           addEvent(events, 'counterTrigger', m.name, 0, `${m.name}が全味方にアーマーを付与！`);
@@ -674,13 +660,13 @@ export function resolveTurn(
         }
       }
 
-      // 石壁の守護者: threshold=3 → apply armor(3,2t) to all living allies
+      // 石壁の守護者: threshold=3 → apply armor(3) to all living allies
       if (m.id === 'stone-wall' && m.counter && m.counter.type === 'threshold') {
         const threshold = m.counter.threshold ?? 3;
         if (m.counter.value >= threshold) {
           for (const ally of [p.front, p.rear]) {
             if (!ally.isDead) {
-              applyStatusToMonster(ally, 'armor', 3, 2, m.id);
+              addDebuff(ally, 'armor', 3);
             }
           }
           m.counter.value = 0;
@@ -688,12 +674,12 @@ export function resolveTurn(
         }
       }
 
-      // 護法の双剣士: threshold=3 → ally_front armor(2,2t) + powerUp+1
+      // 護法の双剣士: threshold=3 → ally_front armor(2) + powerUp+1
       if (m.id === 'guardian-swordsman' && m.counter && m.counter.type === 'threshold') {
         const threshold = m.counter.threshold ?? 3;
         if (m.counter.value >= threshold) {
           if (!p.front.isDead) {
-            applyStatusToMonster(p.front, 'armor', 2, 2, m.id);
+            addDebuff(p.front, 'armor', 2);
             p.front.basePower += 1;
             recalcPower(p.front);
             addEvent(events, 'powerChange', p.front.name, p.front.power, `${m.name}の護法発動！${p.front.name}にアーマー+攻撃力+1！`);
@@ -738,10 +724,9 @@ export function resolveTurn(
     const p = s.players[pi];
     for (const m of [p.front, p.rear]) {
       if (m.isDead) continue;
-      for (const se of m.statusEffects) {
-        if (se.type === 'curse' || se.type === 'poison') {
-          applyHpDamage(m, se.value, events, se.type);
-        }
+      for (const debuffType of ['curse', 'poison'] as const) {
+        const dmg = m.debuffs[debuffType] ?? 0;
+        if (dmg > 0) applyHpDamage(m, dmg, events, debuffType);
       }
     }
   }
@@ -856,19 +841,23 @@ export function resolveTurn(
     }
   }
 
-  // Decrement status durations (non-stormwind, stormwind decremented in phase 0)
+  // Decay temporary debuffs (stormwind already decayed in Phase 0)
   for (let pi = 0 as 0 | 1; pi <= 1; pi++) {
     const p = s.players[pi];
     for (const m of [p.front, p.rear]) {
-      m.statusEffects = m.statusEffects.filter((se) => {
-        if (se.type === 'stormwind') return true; // managed in phase 0
-        se.duration--;
-        return se.duration > 0;
-      });
+      // decay temporary buffs/debuffs
+      for (const key of ['powerUp', 'powerDown', 'reverse'] as const) {
+        if (m.debuffs[key]) {
+          m.debuffs[key]--;
+          if (m.debuffs[key] <= 0) delete m.debuffs[key];
+        }
+      }
+      // defense clears each turn (used or not)
+      delete m.debuffs.defense;
     }
   }
 
-  // After decrement, recalc power again for powerUp/powerDown status effects
+  // After decay, recalc power again for powerUp/powerDown debuffs
   for (let pi = 0 as 0 | 1; pi <= 1; pi++) {
     const p = s.players[pi];
     for (const m of [p.front, p.rear]) {
@@ -923,7 +912,7 @@ export function createMonsterState(
     canRevive: monster.canRevive,
     hasRevived: false,
     counter,
-    statusEffects: [],
+    debuffs: {},
     lastCardWasChain: false,
     hpScaledPower: monster.hpScaledPower,
     transformPowerBonus: monster.transformPowerBonus,

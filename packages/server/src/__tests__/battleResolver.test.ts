@@ -149,13 +149,8 @@ describe('battleResolver', () => {
   it('5. Stormwind: fires before card resolve, damages own monster', () => {
     const state = makeState('storm-warlock', 'holy-priest', 'iron-golem', 'holy-priest');
 
-    // Add stormwind status to p1's front monster
-    state.players[0].front.statusEffects.push({
-      type: 'stormwind',
-      value: 2,
-      duration: 2,
-      source: 'test',
-    });
+    // Add stormwind debuff to p1's front monster
+    state.players[0].front.debuffs['stormwind'] = 2;
 
     const initialHp = state.players[0].front.hp;
 
@@ -288,8 +283,8 @@ describe('battleResolver', () => {
     const p0Front = nextState.players[0].front;
     // Counter should have reached 4 → armor applied → counter reset to 0
     expect(p0Front.counter?.value).toBe(0);
-    // Both allies should have armor status
-    const frontHasArmor = nextState.players[0].front.statusEffects.some((se) => se.type === 'armor');
+    // Both allies should have armor debuff
+    const frontHasArmor = (nextState.players[0].front.debuffs['armor'] ?? 0) > 0;
     expect(frontHasArmor).toBe(true);
   });
 
@@ -314,8 +309,8 @@ describe('battleResolver', () => {
     const state = makeState('iron-golem', 'reverser', 'iron-golem', 'holy-priest');
     const p2Front = state.players[1].front;
     const initialPower = p2Front.power;
-    // Apply 'reverse' status to p2 front
-    p2Front.statusEffects.push({ type: 'reverse', value: 1, duration: 3, source: 'reverser' });
+    // Apply 'reverse' debuff to p2 front
+    p2Front.debuffs['reverse'] = 3;
     // P1 plays a buff card targeting enemy_front (powerUp)
     const buffCard: CardState = {
       id: 'buf1', monsterId: 'iron-golem', name: 'Buff', description: '', type: 'buff',

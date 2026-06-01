@@ -14,7 +14,7 @@ export type CardEffectAction =
   | 'damage' | 'heal' | 'powerUp' | 'powerDown'
   | 'counterAdd' | 'counterReduce' | 'revive' | 'defense'
   | 'multiHit'    // ダブルエッジ: deal damage twice (ceil(power/2) each)
-  | 'applyStatus' // Apply a StatusEffect (armor, shield, reverse, etc.)
+  | 'applyStatus' // Apply a debuff (armor, shield, reverse, etc.)
   | 'swapPositions'      // swap own front/rear
   | 'swapEnemyPositions' // force opponent's front/rear swap
   | 'swapAlliesHp';      // swap own front/rear current HP values
@@ -28,7 +28,7 @@ export type CardEffect = {
   counterName?: string;
   selfHpCost?: number;
   multiHitCount?: number; // default 2 for multiHit action
-  // applyStatus fields: statusType is the StatusEffect.type to apply
+  // applyStatus fields: statusType is the debuff type to apply
   statusType?: string;
   statusValue?: number;
   statusDuration?: number;
@@ -67,13 +67,6 @@ export type MonsterMaster = {
   transformPowerBonus?: number;  // power bonus added when isTransformed === true
 };
 
-export type StatusEffect = {
-  type: string;
-  value: number;
-  duration: number;
-  source: string;
-};
-
 export type CounterInfo = {
   name: string;
   value: number;
@@ -94,7 +87,7 @@ export type MonsterState = {
   canRevive: boolean;
   hasRevived: boolean;
   counter?: CounterInfo;
-  statusEffects: StatusEffect[];
+  debuffs: Record<string, number>;
   lastCardWasChain: boolean;
   hpScaledPower?: boolean; // ブラッドバーサーカー: recalculate power based on HP ratio
   isTransformed?: boolean;       // true after 激昂カウンター threshold reached
@@ -147,5 +140,5 @@ export type DisplayMonster = {
   isDead: boolean;
   counterName?: string;
   counterValue?: number;
-  statusEffects: StatusEffect[];
+  debuffs: Record<string, number>;
 };

@@ -11,6 +11,6 @@ export function toDisplayMonster(m: MonsterState): DisplayMonster {
     isDead: m.isDead,
     counterName: m.counter?.name,
     counterValue: m.counter?.value,
-    statusEffects: m.statusEffects,
+    debuffs: m.debuffs,
   };
 }

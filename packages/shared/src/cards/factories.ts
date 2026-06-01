@@ -72,9 +72,9 @@ export function onBlockDamageEffect(value: EffectValue = powerVal()): CardEffect
 }
 
 /**
- * Encode a StatusEffect application as a counterAdd with a special counterName.
+ * Encode a debuff application as a counterAdd with a special counterName.
  * Format: __status__<type>__<duration>
- * The battle resolver decodes this and applies a real StatusEffect to the target.
+ * The battle resolver decodes this and applies the debuff to the target.
  */
 export function applyStatusEffect(
   statusType: string,
