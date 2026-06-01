@@ -425,7 +425,7 @@ export const MONSTERS: MonsterMaster[] = [
     power: 2,
     category: '守護',
     canRevive: false,
-    counterDef: { name: '守護カウンター', type: 'threshold', threshold: 3 },
+    counterDef: { name: '守護カウンター', type: 'threshold', threshold: 3, description: 'カウンターが3に達すると全味方にアーマー+3を付与し、カウンターをリセット' },
     description: '揺るぎない防御で味方を守る。カウンターが溜まると全味方にアーマーを付与',
   },
   {
