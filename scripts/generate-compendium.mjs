@@ -314,6 +314,7 @@ function buildMonsterCards(id) {
 }
 
 function fmtCounterType(cd) {
+  if (cd.description) return cd.description;
   if (cd.type === 'self') return 'カウンターが溜まるほどパワーが上昇する';
   if (cd.type === 'apply') return 'カウンターが溜まると付与する状態異常が強化される';
   if (cd.type === 'threshold') return `カウンターが${cd.threshold}に達すると特殊効果が発動する`;

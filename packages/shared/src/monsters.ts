@@ -83,7 +83,7 @@ export const MONSTERS: MonsterMaster[] = [
     power: 5,
     category: '特殊',
     canRevive: false,
-    counterDef: { name: '嵐カウンター', type: 'threshold', threshold: 3 },
+    counterDef: { name: '嵐カウンター', type: 'threshold', threshold: 3, description: 'カウンターが3に達すると全敵にカウンター値分の呪嵐バーストダメージを与え、カウンターをリセット' },
     description: '呪嵐の魔術師。嵐カウンターを蓄え、3に達すると全敵に呪嵐バーストを解き放つ。',
   },
   {

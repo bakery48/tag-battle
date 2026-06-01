@@ -51,6 +51,7 @@ export type CounterDef = {
   name: string;
   type: 'self' | 'apply' | 'threshold' | 'lifesteal' | 'burn' | 'reviveBonus' | 'stack' | 'healBonus' | 'healOnAttack' | 'armorBonus' | 'stormBonus';
   threshold?: number;
+  description?: string;
 };
 
 export type MonsterMaster = {
