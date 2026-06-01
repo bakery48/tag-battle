@@ -215,9 +215,6 @@ function applyEffect(
             if (parsed.type === 'stormwind' && re.actor.counter?.type === 'stormBonus') {
               statusVal += re.actor.counter.value;
             }
-            if (parsed.type === 'curse' && re.actor.counter?.type === 'curseBonus') {
-              statusVal += re.actor.counter.value;
-            }
             addDebuff(tgt, parsed.type, statusVal);
             addEvent(events, 'counterChange', tgt.name, statusVal, `${tgt.name}に${parsed.type}(${statusVal})が付与された`);
             break;
@@ -470,11 +467,6 @@ export function resolveTurn(
       recalcPower(actor);
     }
 
-    // StormWarlock: 嵐 counter applied per status effect card (already incremented by counterAdd)
-    if (actor.id === 'storm-warlock' && actor.counter) {
-      recalcPower(actor);
-    }
-
     // ChainSoldier: chain condition
     if (actor.id === 'chain-soldier' && actor.counter) {
       const isChainCard = card.effects.some(
@@ -686,6 +678,22 @@ export function resolveTurn(
           }
           m.counter.value = 0;
           addEvent(events, 'counterTrigger', m.name, 0, `${m.name}の護法カウンターが発動した！`);
+        }
+      }
+
+      // ストームウォーロック: threshold=3 → 呪嵐バースト: deal counter.value damage to all living enemies
+      if (m.id === 'storm-warlock' && m.counter && m.counter.type === 'threshold') {
+        const threshold = m.counter.threshold ?? 3;
+        if (m.counter.value >= threshold) {
+          const burstDmg = m.counter.value;
+          const stormOpp = s.players[pi === 0 ? 1 : 0];
+          for (const enemy of [stormOpp.front, stormOpp.rear]) {
+            if (!enemy.isDead) {
+              applyHpDamage(enemy, burstDmg, events, '呪嵐バースト');
+            }
+          }
+          m.counter.value = 0;
+          addEvent(events, 'counterTrigger', m.name, 0, `${m.name}の呪嵐バースト！全敵に${burstDmg}ダメージ！`);
         }
       }
 

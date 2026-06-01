@@ -83,8 +83,8 @@ export const MONSTERS: MonsterMaster[] = [
     power: 5,
     category: '特殊',
     canRevive: false,
-    counterDef: { name: '嵐カウンター', type: 'curseBonus' },
-    description: '呪嵐の魔術師。敵に呪いを付与し毎ターン終了時にダメージを与える。嵐カウンターが溜まるほど呪いのダメージが増大する。',
+    counterDef: { name: '嵐カウンター', type: 'threshold', threshold: 3 },
+    description: '呪嵐の魔術師。嵐カウンターを蓄え、3に達すると全敵に呪嵐バーストを解き放つ。',
   },
   {
     id: 'guard-beast',

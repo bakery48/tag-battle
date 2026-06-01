@@ -49,7 +49,7 @@ export type CardState = {
 
 export type CounterDef = {
   name: string;
-  type: 'self' | 'apply' | 'threshold' | 'lifesteal' | 'burn' | 'reviveBonus' | 'stack' | 'healBonus' | 'healOnAttack' | 'armorBonus' | 'stormBonus' | 'curseBonus';
+  type: 'self' | 'apply' | 'threshold' | 'lifesteal' | 'burn' | 'reviveBonus' | 'stack' | 'healBonus' | 'healOnAttack' | 'armorBonus' | 'stormBonus';
   threshold?: number;
 };
 
@@ -70,7 +70,7 @@ export type MonsterMaster = {
 export type CounterInfo = {
   name: string;
   value: number;
-  type: 'self' | 'apply' | 'threshold' | 'lifesteal' | 'burn' | 'reviveBonus' | 'stack' | 'healBonus' | 'healOnAttack' | 'armorBonus' | 'stormBonus' | 'curseBonus';
+  type: 'self' | 'apply' | 'threshold' | 'lifesteal' | 'burn' | 'reviveBonus' | 'stack' | 'healBonus' | 'healOnAttack' | 'armorBonus' | 'stormBonus';
   threshold?: number;
   appliedTo?: string;
 };
